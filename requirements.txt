@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pydantic
+scikit-learn
+xgboost
+tensorflow
+faiss-cpu
+neo4j
+mlflow
+pytest
+black
+isort
