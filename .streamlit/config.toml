@@ -1,13 +1,10 @@
-[general]
-# Email address used for email authentication
-email = ""
-
 [server]
 # The port where the server will listen for client and browser connections
 port = 8501
 
 # The IP address where the server will listen for client and browser connections
 headless = false
+address = "0.0.0.0"
 
 # Run the server in headless mode
 runOnSave = true
@@ -26,7 +23,7 @@ enableXsrfProtection = true
 
 [browser]
 # Internet address where users should point their browsers to connect to the app
-serverAddress = "localhost"
+serverAddress = "0.0.0.0"
 
 # Whether to send usage statistics to Streamlit
 gatherUsageStats = false
