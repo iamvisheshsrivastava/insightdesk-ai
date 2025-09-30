@@ -10,3 +10,19 @@ mlflow
 pytest
 black
 isort
+matplotlib
+seaborn
+tqdm
+pandas
+numpy
+joblib
+sentence-transformers
+transformers
+torch
+# Benchmarking and evaluation dependencies
+psutil
+scipy
+plotly
+# Streamlit dashboard dependencies
+streamlit
+requests

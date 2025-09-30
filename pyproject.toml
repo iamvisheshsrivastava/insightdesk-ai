@@ -1,5 +1,168 @@
+# pyproject.toml - Configuration for Black, isort, and other tools
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "insightdesk-ai"
+description = "Intelligent support platform with ML-powered ticket classification and RAG"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Vishesh Srivastava", email = "iamvisheshsrivastava@gmail.com"},
+]
+keywords = ["ai", "ml", "support", "tickets", "classification", "rag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/iamvisheshsrivastava/insightdesk-ai"
+Repository = "https://github.com/iamvisheshsrivastava/insightdesk-ai"
+Documentation = "https://github.com/iamvisheshsrivastava/insightdesk-ai#readme"
+"Bug Tracker" = "https://github.com/iamvisheshsrivastava/insightdesk-ai/issues"
+
+# Black configuration
 [tool.black]
 line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | mlruns
+  | notebooks
+)/
+'''
 
+# isort configuration
 [tool.isort]
 profile = "black"
+multi_line_output = 3
+line_length = 88
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_glob = [
+    "**/__pycache__",
+    "**/.*",
+    "**/mlruns/**",
+    "**/notebooks/**"
+]
+known_first_party = ["src"]
+known_third_party = [
+    "fastapi",
+    "uvicorn", 
+    "pydantic",
+    "sklearn",
+    "xgboost",
+    "tensorflow",
+    "faiss",
+    "neo4j",
+    "mlflow",
+    "pytest",
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "numpy"
+]
+
+# pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--disable-warnings",
+    "--tb=short"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "api: marks tests as API tests",
+    "model: marks tests as model tests",
+]
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/mlruns/*",
+    "*/notebooks/*",
+    "*/scripts/*",
+    "*/.venv/*",
+    "*/venv/*"
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\(Protocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Set to true for stricter typing
+ignore_missing_imports = true
+exclude = [
+    "mlruns/",
+    "notebooks/",
+    ".venv/",
+    "venv/"
+]
+
+# Bandit security linting configuration
+[tool.bandit]
+exclude_dirs = ["tests", "mlruns", "notebooks", ".venv", "venv"]
+skips = ["B101", "B601"]  # Skip assert_used and shell=True (common in tests/scripts)

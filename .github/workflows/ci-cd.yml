@@ -1,0 +1,566 @@
+# InsightDesk AI - CI/CD Pipeline
+name: InsightDesk AI CI/CD
+
+# Trigger configuration
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:  # Allow manual triggering
+
+# Environment variables
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  DOCKER_IMAGE_NAME: insightdesk-ai
+  REGISTRY: ghcr.io
+  
+# Concurrency control - cancel previous runs on new push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Code Quality & Linting
+  lint-and-format:
+    name: 🔍 Lint & Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort flake8 mypy bandit safety
+          pip install -r requirements.txt
+      
+      - name: 🎨 Check Code Formatting (Black)
+        run: |
+          echo "::group::Black Formatting Check"
+          black --check --diff --color .
+          echo "::endgroup::"
+      
+      - name: 📋 Check Import Sorting (isort)
+        run: |
+          echo "::group::Import Sorting Check"
+          isort --check --diff --color .
+          echo "::endgroup::"
+      
+      - name: 🔍 Lint Code (Flake8)
+        run: |
+          echo "::group::Flake8 Linting"
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+          echo "::endgroup::"
+      
+      - name: 🔒 Security Scan (Bandit)
+        run: |
+          echo "::group::Security Analysis"
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ --severity-level medium
+          echo "::endgroup::"
+      
+      - name: 🛡️ Dependency Security Check (Safety)
+        run: |
+          echo "::group::Dependency Security Check"
+          safety check --json --output safety-report.json || true
+          safety check
+          echo "::endgroup::"
+      
+      - name: 📊 Upload Security Reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+          retention-days: 30
+
+  # Job 2: Unit Tests with Coverage
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint-and-format
+    
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+      fail-fast: false
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-xvfb pytest-mock coverage[toml]
+          pip install -r requirements.txt
+      
+      - name: 🧪 Run Unit Tests
+        run: |
+          echo "::group::Running Unit Tests"
+          pytest tests/ \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --junitxml=junit/test-results-${{ matrix.python-version }}.xml \
+            --verbose \
+            --tb=short
+          echo "::endgroup::"
+      
+      - name: 📊 Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: matrix.python-version == '3.11'
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+      
+      - name: 📈 Upload Test Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            junit/test-results-${{ matrix.python-version }}.xml
+            htmlcov/
+            coverage.xml
+          retention-days: 30
+
+  # Job 3: Integration Tests
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: lint-and-format
+    
+    services:
+      # Neo4j for Graph-RAG testing
+      neo4j:
+        image: neo4j:5.13
+        env:
+          NEO4J_AUTH: neo4j/testpassword
+          NEO4J_PLUGINS: '["apoc"]'
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p testpassword 'RETURN 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 7474:7474
+          - 7687:7687
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+      
+      - name: 🔍 Wait for Neo4j
+        run: |
+          echo "Waiting for Neo4j to be ready..."
+          timeout 60 bash -c 'until curl -f http://localhost:7474; do sleep 2; done'
+      
+      - name: 🧪 Run Integration Tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: testpassword
+        run: |
+          echo "::group::Integration Tests"
+          # Run specific integration tests
+          pytest tests/test_api.py -v --tb=short
+          pytest tests/test_rag.py -v --tb=short
+          
+          # Test scripts functionality
+          python scripts/test_benchmark_quick.py
+          echo "::endgroup::"
+      
+      - name: 📊 Upload Integration Test Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            test_results/
+            demo_results/
+          retention-days: 30
+
+  # Job 4: Build & Test Docker Image
+  build-and-test:
+    name: 🐳 Build & Test API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint-and-format, unit-tests]
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: 🏗️ Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            PYTHON_VERSION=${{ env.PYTHON_VERSION }}
+      
+      - name: 🧪 Test Docker Image
+        run: |
+          echo "::group::Docker Image Tests"
+          
+          # Start container in background
+          docker run -d \
+            --name insightdesk-test \
+            -p 8000:8000 \
+            -e ENVIRONMENT=test \
+            ${{ env.DOCKER_IMAGE_NAME }}:test
+          
+          # Wait for container to be ready
+          echo "Waiting for API to be ready..."
+          timeout 60 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+          
+          # Test API endpoints
+          echo "Testing API endpoints..."
+          curl -f http://localhost:8000/ | jq '.'
+          curl -f http://localhost:8000/health | jq '.'
+          
+          # Test API functionality (if models are available)
+          curl -X POST http://localhost:8000/predict/category \
+            -H "Content-Type: application/json" \
+            -d '{"subject":"Test ticket","description":"Test description","priority":"medium"}' \
+            | jq '.' || echo "Model prediction test skipped (models not available)"
+          
+          # Check container logs
+          echo "Container logs:"
+          docker logs insightdesk-test
+          
+          # Stop container
+          docker stop insightdesk-test
+          docker rm insightdesk-test
+          
+          echo "::endgroup::"
+      
+      - name: 📊 Container Security Scan
+        run: |
+          echo "::group::Container Security Scan"
+          # Install trivy for container scanning
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+          
+          # Scan the Docker image
+          trivy image --format json --output trivy-report.json ${{ env.DOCKER_IMAGE_NAME }}:test || true
+          trivy image ${{ env.DOCKER_IMAGE_NAME }}:test
+          echo "::endgroup::"
+      
+      - name: 📊 Upload Container Scan Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: container-security-scan
+          path: trivy-report.json
+          retention-days: 30
+
+  # Job 5: Performance & Load Testing
+  performance-tests:
+    name: ⚡ Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-and-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install locust requests
+      
+      - name: ⚡ Run Performance Tests
+        run: |
+          echo "::group::Performance Testing"
+          
+          # Start API server in background
+          python src/api/main.py &
+          API_PID=$!
+          
+          # Wait for API to be ready
+          sleep 10
+          
+          # Run benchmarking tests
+          python scripts/demo_benchmarking.py
+          
+          # Basic load test (if locust is configured)
+          # locust -f tests/load_test.py --headless -u 10 -r 2 -t 30s --host=http://localhost:8000
+          
+          # Stop API server
+          kill $API_PID || true
+          
+          echo "::endgroup::"
+      
+      - name: 📊 Upload Performance Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            demo_results/
+            performance_results.json
+          retention-days: 30
+
+  # Job 6: Build & Push Docker Image (on main branch)
+  build-and-push:
+    name: 📦 Build & Push Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [unit-tests, integration-tests, build-and-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: 🔐 Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 🏷️ Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: 🏗️ Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            PYTHON_VERSION=${{ env.PYTHON_VERSION }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+
+  # Job 7: Deploy to Staging (Placeholder for CD)
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-and-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🚀 Deploy to Staging (Placeholder)
+        run: |
+          echo "::group::Staging Deployment"
+          echo "🚧 Staging deployment placeholder - Future implementation:"
+          echo "  ✅ AWS ECS/Fargate deployment"
+          echo "  ✅ Google Cloud Run deployment"  
+          echo "  ✅ Azure Container Instances deployment"
+          echo "  ✅ Kubernetes deployment with Helm"
+          echo "  ✅ Health checks and rollback strategies"
+          echo "  ✅ Environment variable management"
+          echo "  ✅ Database migrations"
+          echo "  ✅ MLflow model registry sync"
+          echo "::endgroup::"
+          
+          # Placeholder for actual deployment commands:
+          # aws ecs update-service --cluster staging --service insightdesk-ai --force-new-deployment
+          # gcloud run deploy insightdesk-ai --image ${{ env.REGISTRY }}/${{ github.repository }}:latest --region us-central1
+          # az container restart --name insightdesk-ai --resource-group staging
+      
+      - name: 📊 Deployment Status
+        run: |
+          echo "::notice title=Staging Deployment::Placeholder deployment completed successfully"
+
+  # Job 8: Production Deployment (Manual Approval)
+  deploy-production:
+    name: 🌟 Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy-staging]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🌟 Deploy to Production (Placeholder)
+        run: |
+          echo "::group::Production Deployment"
+          echo "🚧 Production deployment placeholder - Future implementation:"
+          echo "  ✅ Blue-green deployment strategy"
+          echo "  ✅ Canary deployments with traffic splitting"
+          echo "  ✅ Comprehensive health checks"
+          echo "  ✅ Automated rollback on failure"
+          echo "  ✅ Performance monitoring setup"
+          echo "  ✅ Alerting and notification setup"
+          echo "  ✅ MLflow model registry promotion"
+          echo "  ✅ A/B testing configuration"
+          echo "::endgroup::"
+          
+          # Placeholder for production deployment:
+          # - Database backups
+          # - Rolling deployment
+          # - Health checks
+          # - Monitoring setup
+      
+      - name: 📊 Production Status
+        run: |
+          echo "::notice title=Production Deployment::Placeholder deployment completed successfully"
+
+  # Job 9: Post-Deployment Tasks
+  post-deployment:
+    name: 📋 Post-Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-production]
+    if: always() && (needs.deploy-production.result == 'success' || needs.deploy-production.result == 'skipped')
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 📋 Post-Deployment Tasks (Placeholder)
+        run: |
+          echo "::group::Post-Deployment Tasks"
+          echo "🚧 Post-deployment tasks placeholder - Future implementation:"
+          echo "  ✅ MLflow model registry sync"
+          echo "  ✅ Update monitoring dashboards"
+          echo "  ✅ Send deployment notifications"
+          echo "  ✅ Update documentation"
+          echo "  ✅ Generate deployment report"
+          echo "  ✅ Cache warming"
+          echo "  ✅ Smoke tests in production"
+          echo "::endgroup::"
+          
+          # TODO: Implement actual post-deployment tasks
+          # - Sync trained models to MLflow model registry
+          # - Update Grafana/DataDog dashboards
+          # - Send Slack/Teams notifications
+          # - Generate deployment changelog
+      
+      - name: 📊 MLflow Model Registry Sync (TODO)
+        run: |
+          echo "::group::MLflow Integration"
+          echo "🔄 TODO: Implement MLflow model registry sync"
+          echo "  - Register trained models"
+          echo "  - Update model versions"
+          echo "  - Promote models to production"
+          echo "  - Archive old model versions"
+          echo "::endgroup::"
+
+  # Job 10: Cleanup & Notifications
+  cleanup:
+    name: 🧹 Cleanup & Notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [unit-tests, integration-tests, build-and-test, performance-tests, post-deployment]
+    if: always()
+    
+    steps:
+      - name: 📊 Collect Workflow Status
+        run: |
+          echo "::group::Workflow Summary"
+          echo "Lint & Format: ${{ needs.lint-and-format.result || 'skipped' }}"
+          echo "Unit Tests: ${{ needs.unit-tests.result || 'skipped' }}"
+          echo "Integration Tests: ${{ needs.integration-tests.result || 'skipped' }}"
+          echo "Build & Test: ${{ needs.build-and-test.result || 'skipped' }}"
+          echo "Performance Tests: ${{ needs.performance-tests.result || 'skipped' }}"
+          echo "Post-Deployment: ${{ needs.post-deployment.result || 'skipped' }}"
+          echo "::endgroup::"
+      
+      - name: 📧 Notify on Failure (Placeholder)
+        if: failure()
+        run: |
+          echo "::error title=Pipeline Failed::One or more jobs failed in the CI/CD pipeline"
+          echo "🚧 TODO: Implement notification system"
+          echo "  - Slack webhook notifications"
+          echo "  - Email alerts for critical failures"
+          echo "  - GitHub issue creation for recurring failures"
+      
+      - name: 🎉 Notify on Success
+        if: success()
+        run: |
+          echo "::notice title=Pipeline Success::All CI/CD jobs completed successfully! 🎉"
