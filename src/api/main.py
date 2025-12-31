@@ -91,6 +91,16 @@ except ImportError:
     MODEL_FUNCTIONS_AVAILABLE = False
     logger.warning("⚠️ Model prediction functions not available")
 
+# Try to import Agentic Orchestrator
+try:
+    from src.agentic.orchestrator import AgentOrchestrator
+    AGENTIC_AVAILABLE = True
+    logger.info("✅ Agentic Orchestrator available")
+except ImportError:
+    AGENTIC_AVAILABLE = False
+    logger.warning("⚠️ Agentic Orchestrator not available")
+
+
 
 class ModelManager:
     """Dependency injection container for ML models and RAG pipeline."""
@@ -2508,3 +2518,32 @@ def get_models_info(manager: ModelManager = Depends(get_model_manager)):
         "xgboost": manager.xgb_classifier.get_model_info() if manager.xgb_classifier else {"status": "not_loaded"},
         "tensorflow": manager.tf_classifier.get_model_info() if manager.tf_classifier else {"status": "not_loaded"}
     }
+
+
+# Agentic AI Models
+class AgentRequest(BaseModel):
+    """Request model for agentic solution."""
+    ticket_data: Dict[str, Any]
+    max_steps: int = 5
+
+class AgentResponse(BaseModel):
+    """Response model for agentic solution."""
+    result: Dict[str, Any]
+
+@app.post("/agent/solve", response_model=AgentResponse)
+async def solve_ticket_agent(request: AgentRequest):
+    """
+    Solve a ticket using the Agentic AI Orchestrator.
+    
+    This endpoint triggers the Plan-Act-Observe-Reflect loop.
+    """
+    if not AGENTIC_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Agentic components not available")
+    
+    try:
+        orchestrator = AgentOrchestrator()
+        result = orchestrator.run(request.ticket_data, max_steps=request.max_steps)
+        return AgentResponse(result=result)
+    except Exception as e:
+        logger.error(f"Agent execution failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
