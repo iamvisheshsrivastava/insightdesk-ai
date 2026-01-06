@@ -26,3 +26,8 @@ plotly
 # Streamlit dashboard dependencies
 streamlit
 requests
+# LangGraph and LangChain for agentic workflows
+langgraph>=0.0.20
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-core>=0.1.0
