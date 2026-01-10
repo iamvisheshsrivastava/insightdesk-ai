@@ -1,5 +1,5 @@
 # insightdesk-ai
-
+   
 <!-- Project Overview: This section provides a high-level description of what InsightDesk AI does -->
 InsightDesk AI is an intelligent support platform that leverages advanced AI/ML technologies to automatically classify tickets, retrieve relevant solutions using RAG (Retrieval-Augmented Generation), and provide intelligent insights for support teams. Built with production-ready architecture featuring FastAPI, MLflow tracking, and comprehensive testing.
 
