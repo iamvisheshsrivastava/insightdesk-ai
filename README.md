@@ -498,6 +498,34 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This project includes a comprehensive CI/CD pipeline that automatically runs on every push and pull request to the `main` branch. The pipeline ensures code quality, runs tests, and prepares for deployment.
 
+## Frontend & Deployment (React + CI + Docker)
+
+- The interactive dashboard has been migrated from Streamlit to a lightweight React + Vite frontend located in `frontend/`.
+- Development: run the frontend dev server (proxies `/api` to `http://localhost:8000`):
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host
+```
+
+- Production: a Dockerfile in `frontend/` builds the static `dist/` and serves it with `nginx`.
+- CI/CD: `.github/workflows/ci-cd.yml` builds the frontend, builds backend and frontend Docker images, and pushes images to GitHub Container Registry (GHCR) on pushes to `main`.
+
+Deployment notes:
+- The workflow pushes images to `ghcr.io/${{ github.repository_owner }}/insightdesk-api` and `insightdesk-frontend`.
+- To use GHCR you may need to enable GitHub Packages for your account or org. The workflow uses `GITHUB_TOKEN` for authentication.
+- `docker-compose.prod.yml` is provided to run the production stack locally or on a VM (services: `insightdesk-api`, `frontend`, `neo4j`).
+
+Legacy Streamlit:
+- The original Streamlit apps were removed from the main tree and backed up under `legacy/streamlit/` in case you want to restore them.
+
+.gitignore
+- Updated to exclude `frontend/node_modules/`, `frontend/dist/`, `.streamlit/` and other common build artifacts.
+
+If you want a CI deploy step (SSH / Kubernetes / cloud provider), tell me which target and I will add it to the workflow.
+
+
 #### Pipeline Overview
 
 The CI/CD workflow consists of 10 integrated jobs:

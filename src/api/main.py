@@ -726,28 +726,26 @@ async def predict_category(
         
         # Generate a mock classification based on keywords in the ticket
         mock_category = generate_mock_classification(ticket)
+        mock_confidence = 0.75
+        mock_timestamp = datetime.now().isoformat()
         
         return CategoryPredictionResponse(
             ticket_id=ticket.ticket_id or f"demo_{int(time.time())}",
-            category=mock_category,
-            confidence=0.75,  # Mock confidence
-            probabilities={
-                mock_category: 0.75,
-                "Technical Issue": 0.15,
-                "Bug Report": 0.10
-            },
             predictions={
-                "mock_model": {
+                "xgboost": {
                     "category": mock_category,
-                    "confidence": 0.75,
+                    "confidence": mock_confidence,
+                    "model_type": "demo"
+                },
+                "tensorflow": {
+                    "category": mock_category,
+                    "confidence": mock_confidence,
                     "model_type": "demo"
                 }
             },
-            model_performance={
-                "inference_time_ms": 50,
-                "models_used": ["demo_classifier"],
-                "total_models_available": 0
-            }
+            available_models=["demo"],
+            total_inference_time_ms=50.0,
+            timestamp=mock_timestamp
         )
     
     # Log prediction request

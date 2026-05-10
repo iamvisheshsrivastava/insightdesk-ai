@@ -204,19 +204,25 @@ def predict_category():
             
             if result:
                 st.success("✅ Classification completed successfully!")
+
+                # Derive summary values from model predictions when top-level fields are absent.
+                primary_prediction = result.get("predictions", {}).get("xgboost", {})
+                recommended_category = result.get("category") or primary_prediction.get("category", "Unknown")
+                confidence_value = result.get("confidence")
+                if confidence_value is None:
+                    confidence_value = primary_prediction.get("confidence", 0)
                 
                 # Display results in columns
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric("🎯 Recommended Category", result.get("category", "Unknown"))
+                    st.metric("🎯 Recommended Category", recommended_category)
                 
                 with col2:
                     st.metric("⚡ Inference Time", f"{inference_time:.2f}s")
                 
                 with col3:
-                    confidence = result.get("confidence", 0)
-                    st.metric("🎯 Confidence", f"{confidence:.1%}")
+                    st.metric("🎯 Confidence", f"{confidence_value:.1%}")
                 
                 # Model predictions comparison
                 st.subheader("🤖 Model Predictions Comparison")
@@ -590,131 +596,4 @@ def submit_feedback():
                     "satisfaction_score": customer_satisfaction,
                     "resolution_rating": resolution_rating,
                     "response_time_rating": response_time_rating,
-                    "would_recommend": would_recommend,
-                    "issue_resolved": issue_resolved,
-                    "comments": customer_comments,
-                    "feedback_type": "customer"
-                }
-                
-                result = make_api_request("/feedback/customer", "POST", customer_feedback_data)
-                if result:
-                    st.success("✅ Customer feedback submitted successfully!")
-                else:
-                    st.error("❌ Failed to submit feedback. Please try again.")
-    
-    with tab3:
-        st.subheader("📊 Feedback Statistics")
-        
-        with st.spinner("📈 Loading feedback analytics..."):
-            stats_result = make_api_request("/feedback/stats")
-            
-            if stats_result:
-                # Summary metrics
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    total_feedback = stats_result.get("total_feedback", 0)
-                    st.metric("Total Feedback", total_feedback)
-                
-                with col2:
-                    avg_satisfaction = stats_result.get("avg_customer_satisfaction", 0)
-                    st.metric("Avg Customer Satisfaction", f"{avg_satisfaction:.1f}/5")
-                
-                with col3:
-                    prediction_accuracy = stats_result.get("prediction_accuracy", 0)
-                    st.metric("Prediction Accuracy", f"{prediction_accuracy:.1%}")
-                
-                with col4:
-                    avg_resolution_time = stats_result.get("avg_resolution_time", 0)
-                    st.metric("Avg Resolution Time", f"{avg_resolution_time:.1f}h")
-                
-                # Feedback trends
-                if "feedback_trends" in stats_result:
-                    st.subheader("📈 Feedback Trends")
-                    trends_df = pd.DataFrame(stats_result["feedback_trends"])
                     
-                    fig = px.line(trends_df, x="date", y=["satisfaction", "accuracy"], 
-                                title="Satisfaction and Accuracy Trends")
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                # Category performance
-                if "category_performance" in stats_result:
-                    st.subheader("🎯 Category Performance")
-                    category_df = pd.DataFrame(stats_result["category_performance"])
-                    st.dataframe(category_df, use_container_width=True)
-                    
-            else:
-                st.info("📊 No feedback statistics available yet.")
-
-
-def main():
-    """Main application function"""
-    setup_page_config()
-    create_header()
-    
-    # Sidebar navigation
-    st.sidebar.title("🧭 Navigation")
-    
-    page = st.sidebar.radio(
-        "Select a page:",
-        [
-            "📨 Ticket Categorization",
-            "🔎 Solution Retrieval",
-            "🚨 Anomaly Detection", 
-            "📊 Monitoring & Drift",
-            "🔄 Feedback"
-        ]
-    )
-    
-    # API Status Check
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔌 API Status")
-    
-    try:
-        health_check = make_api_request("/health")
-        if health_check:
-            st.sidebar.success("✅ API Connected")
-            st.sidebar.info(f"Status: {health_check.get('status', 'Unknown')}")
-        else:
-            st.sidebar.error("❌ API Disconnected")
-    except:
-        st.sidebar.error("❌ API Unreachable")
-    
-    # Additional info
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("""
-    **🛠️ Tools:**
-    - FastAPI Backend
-    - XGBoost + TensorFlow
-    - RAG with FAISS
-    - Anomaly Detection
-    - Real-time Monitoring
-    
-    **📚 Documentation:**
-    [API Docs](http://localhost:8000/docs)
-    """)
-    
-    # Route to appropriate page
-    if page == "📨 Ticket Categorization":
-        predict_category()
-    elif page == "🔎 Solution Retrieval":
-        retrieve_solutions()
-    elif page == "🚨 Anomaly Detection":
-        view_anomalies()
-    elif page == "📊 Monitoring & Drift":
-        monitor_status()
-    elif page == "🔄 Feedback":
-        submit_feedback()
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; color: #666; padding: 1rem;">
-        <strong>InsightDesk AI Dashboard</strong> | Built with Streamlit & FastAPI | 
-        <a href="https://github.com/iamvisheshsrivastava/insightdesk-ai" target="_blank">GitHub</a>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-if __name__ == "__main__":
-    main()
