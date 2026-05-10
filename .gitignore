@@ -26,11 +26,13 @@ notebooks/*.ipynb
 .vscode/
 .idea/
 
-# Logs and artifacts
+# Logs and generated artifacts
 *.log
 *.zip
 *.pkl
 *.joblib
+*.db
+*.sqlite3
 mlruns/
 results/
 demo_results/
@@ -38,6 +40,9 @@ test_results/
 test_ab_data/
 test_feedback_json/
 feedback_demo_data/
+
+# Internal planning
+.agent/
 
 # Security
 .env

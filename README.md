@@ -1,383 +1,112 @@
-# insightdesk-ai
+# InsightDesk AI
 
-<!-- Project Overview: This section provides a high-level description of what InsightDesk AI does -->
-InsightDesk AI is an intelligent support platform that leverages advanced AI/ML technologies to automatically classify tickets, retrieve relevant solutions using RAG (Retrieval-Augmented Generation), and provide intelligent insights for support teams. Built with production-ready architecture featuring FastAPI, MLflow tracking, and comprehensive testing.
+InsightDesk AI is an intelligent support-operations platform for classifying incoming tickets, retrieving relevant solutions with RAG, monitoring model behavior, and collecting feedback from support teams. The repository includes a FastAPI backend, a Streamlit dashboard, model training scripts, and evaluation utilities.
 
----
+## Main components
 
-## 🚀 Features
+- FastAPI API for prediction, retrieval, monitoring, and feedback workflows
+- Streamlit dashboard for ticket triage and operational visibility
+- XGBoost and TensorFlow ticket classifiers
+- retrieval pipelines for solution search, including graph-oriented modules
+- anomaly detection, drift monitoring, and feedback-loop utilities
+- training, benchmarking, and launch scripts under `scripts/`
 
-<!-- Core Capabilities: These are the main AI-powered features that make this platform intelligent -->
-* **🤖 Multi-Model Ticket Classification**
-  - XGBoost gradient boosting for structured data
-  - TensorFlow/Keras deep learning with multi-input architecture
-  - Automatic model selection and ensemble predictions
+## Repository layout
 
-* **🔍 Advanced RAG (Retrieval-Augmented Generation)**
-  - Semantic search using sentence transformers
-  - Hybrid retrieval combining semantic + keyword search
-  - FAISS vector store for efficient similarity search
-  - Knowledge base integration with ticket resolutions
-
-* **📊 Comprehensive ML Operations**
-  - MLflow experiment tracking and model versioning
-  - Automated model comparison and performance metrics
-  - Real-time API integration with dependency injection
-  - Extensive unit testing and validation
-
-* **🚀 Production-Ready Architecture**
-  - FastAPI with async endpoints and proper error handling
-  - Docker containerization for scalable deployment
-  - Structured logging and comprehensive monitoring
-  - Clean code architecture with modular design
-
----
-
-## 🗂 Project Structure
-
-<!-- Architecture Overview: This modular structure separates concerns for better maintainability -->
-```
+```text
 insightdesk-ai/
-├─ data/                    # Raw and processed datasets
-│  ├─ support_tickets.json  # Main ticket dataset
-│  └─ features.joblib       # Preprocessed features
-├─ src/
-│  ├─ ingestion/            # Data loading and preprocessing
-│  ├─ features/             # Feature engineering pipelines
-│  ├─ models/               # ML model implementations
-│  ├─ retrieval/            # RAG pipeline components
-│  │  ├─ embedding_manager.py    # Text embedding generation
-│  │  ├─ vector_store.py         # FAISS vector store
-│  │  └─ rag_pipeline.py         # Main RAG pipeline
-│  ├─ api/                  # FastAPI application
-│  └─ utils/                # Shared utilities and logging
-├─ models/                  # Trained model artifacts
-├─ vector_store/            # RAG vector store and indices
-├─ mlruns/                  # MLflow experiment tracking
-├─ tests/                   # Comprehensive test suite
-├─ scripts/                 # Training and utility scripts
-├─ notebooks/               # Jupyter analysis notebooks
-└─ requirements.txt         # Python dependencies
+|-- src/
+|   |-- api/
+|   |-- models/
+|   |-- retrieval/
+|   |-- monitoring/
+|   |-- feedback/
+|   `-- ...
+|-- scripts/
+|-- tests/
+|-- app.py
+|-- demo_dashboard.py
+|-- Makefile
+|-- Dockerfile
+|-- docker-compose.yml
+`-- README.md
 ```
 
----
+## Quickstart
 
-## ⚡ Quick Start
-
-<!-- Getting Started: These steps will get you up and running in development mode -->
-
-### 1. **Environment Setup**
+### 1. Install dependencies
 
 ```bash
-# Clone the repository
 git clone https://github.com/iamvisheshsrivastava/insightdesk-ai.git
 cd insightdesk-ai
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+```
 
-# Install dependencies
+PowerShell:
+
+```powershell
+venv\Scripts\Activate.ps1
+```
+
+macOS/Linux:
+
+```bash
+source venv/bin/activate
+```
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. **Data Preparation & Model Training**
+### 2. Prepare data and artifacts
 
 ```bash
-# Extract and load support tickets data
 python scripts/unzip_and_load.py
-
-# Train both ML models with MLflow tracking
+python scripts/build_features.py
 python scripts/train_and_compare_models.py
-
-# Build RAG knowledge base and vector store
 python scripts/build_rag_index.py
 ```
 
-### 3. **Start the API Server**
+### 3. Run the API
 
 ```bash
-# Launch FastAPI server with auto-reload
-uvicorn src.api.main:app --reload
-
-# API will be available at:
-# - Main API: http://localhost:8000
-# - Interactive docs: http://localhost:8000/docs
-# - OpenAPI schema: http://localhost:8000/openapi.json
+cd src
+python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 4. **Explore MLflow Experiments**
+### 4. Run the dashboard
+
+From the repository root in a second terminal:
 
 ```bash
-# Start MLflow UI (optional)
-mlflow ui
-
-# MLflow dashboard: http://localhost:5000
+streamlit run app.py --server.port 8501
 ```
 
----
-
-## 🔥 API Usage Examples
-
-### Health Check & Model Status
+### 5. Optional shortcuts
 
 ```bash
-# Check API health and model availability
-curl -X GET "http://localhost:8000/health"
-
-# Expected response:
-{
-  "status": "healthy",
-  "models": {
-    "xgboost": true,
-    "tensorflow": true
-  },
-  "rag_available": true,
-  "timestamp": "2025-09-29T10:30:00",
-  "version": "1.0.0"
-}
-```
-
-### Ticket Classification
-
-```bash
-# Classify ticket using XGBoost model
-curl -X POST "http://localhost:8000/predict/category" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ticket_id": "DEMO-001",
-    "subject": "Cannot login to application",
-    "description": "User is unable to authenticate with correct credentials. Getting timeout error.",
-    "error_logs": "Authentication timeout after 30 seconds",
-    "product": "web_application",
-    "channel": "email",
-    "priority": "high"
-  }'
-
-# Response includes predictions from available models:
-{
-  "ticket_id": "DEMO-001",
-  "predictions": {
-    "xgboost": {
-      "predicted_category": "authentication",
-      "confidence": 0.92,
-      "probabilities": {
-        "authentication": 0.92,
-        "database": 0.05,
-        "api": 0.03
-      }
-    },
-    "tensorflow": {
-      "predicted_category": "authentication", 
-      "confidence": 0.89,
-      "probabilities": {
-        "authentication": 0.89,
-        "database": 0.07,
-        "api": 0.04
-      }
-    }
-  },
-  "available_models": ["xgboost", "tensorflow"],
-  "total_inference_time_ms": 245.7,
-  "timestamp": "2025-09-29T10:30:00"
-}
-```
-
-### RAG Solution Retrieval
-
-```bash
-# Retrieve relevant solutions using RAG pipeline
-curl -X POST "http://localhost:8000/retrieve/solutions" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "subject": "Cannot login to application",
-    "description": "User authentication failing with timeout errors",
-    "error_logs": "Authentication service timeout after 30 seconds",
-    "product": "web_application",
-    "category": "authentication",
-    "k": 5,
-    "search_type": "hybrid"
-  }'
-
-# Response with ranked solutions:
-{
-  "query_summary": "Cannot login to application",
-  "solutions": [
-    {
-      "resolution_id": "RES-AUTH-001",
-      "category": "authentication",
-      "product": "web_application",
-      "resolution": "Reset user password and clear authentication cache",
-      "resolution_steps": "1. Reset password 2. Clear browser cache 3. Restart auth service",
-      "similarity_score": 0.94,
-      "semantic_score": 0.92,
-      "keyword_score": 0.18,
-      "success_rate": 0.89,
-      "usage_count": 47,
-      "content_type": "resolution",
-      "search_type": "hybrid"
-    }
-  ],
-  "total_found": 5,
-  "search_type": "hybrid",
-  "processing_time": 0.156
-}
-```
-
----
-
-## 🧪 Testing & Validation
-   
-   # Predict category using XGBoost model
-   curl -X POST http://localhost:8000/predict/category?model_type=xgboost \
-        -H "Content-Type: application/json" \
-        -d '{
-          "ticket_id": "TK-001",
-          "subject": "Cannot login to application",
-          "description": "User is unable to authenticate with correct credentials. Getting timeout error after 30 seconds.",
-          "error_logs": "Authentication timeout",
-          "product": "web_application",
-          "channel": "email",
-          "priority": "high",
-          "customer_tier": "premium",
-          "previous_tickets": 2,
-          "account_age_days": 365
-        }'
-   
-   # Predict category using TensorFlow model
-   curl -X POST http://localhost:8000/predict/category?model_type=tensorflow \
-        -H "Content-Type: application/json" \
-        -d '{
-          "ticket_id": "TK-002", 
-          "subject": "Database connection error",
-          "description": "Application cannot connect to database server",
-          "error_logs": "Connection timeout after 30 seconds",
-          "stack_trace": "java.sql.SQLException: Connection timeout",
-          "product": "api_server",
-          "priority": "critical"
-        }'
-   
-   # Compare predictions from both models
-   curl -X POST http://localhost:8000/predict/category?model_type=both \
-        -H "Content-Type: application/json" \
-        -d '{
-          "ticket_id": "TK-003",
-          "subject": "Payment processing failure", 
-          "description": "Credit card transaction failed with error code 402",
-          "product": "payment_gateway",
-          "priority": "high"
-        }'
-   
-   # Test priority prediction (placeholder endpoint)
-   curl -X POST http://localhost:8000/predict/priority \
-        -H "Content-Type: application/json" \
-        -d '{
-          "ticket_id": "TK-004",
-          "subject": "Server performance issue",
-          "description": "Server response time is very slow"
-        }'
-   ```
-
-7. **Example API Response**
-   <!-- Sample response structure for category prediction -->
-   ```json
-   {
-     "ticket_id": "TK-001",
-     "predictions": {
-       "xgboost": {
-         "predicted_category": "authentication",
-         "confidence": 0.9234,
-         "top_3_predictions": {
-           "authentication": 0.9234,
-           "login_issue": 0.0543,
-           "security": 0.0223
-         },
-         "model_type": "xgboost",
-         "inference_time_ms": 12.5
-       },
-       "tensorflow": {
-         "predicted_category": "authentication", 
-         "confidence": 0.8876,
-         "top_3_predictions": {
-           "authentication": 0.8876,
-           "access_control": 0.0789,
-           "login_issue": 0.0335
-         },
-         "model_type": "tensorflow",
-         "inference_time_ms": 45.2
-       }
-     },
-     "available_models": ["xgboost", "tensorflow"],
-     "total_inference_time_ms": 57.7,
-     "timestamp": "2025-09-29T10:30:45.123456"
-   }
-   ```
-
-8. **Setup MLflow Experiment Tracking**
-   <!-- Initialize MLflow for experiment tracking -->
-   ```bash
-   # Setup MLflow (optional but recommended)
-   python scripts/setup_mlflow.py
-   
-   # Start MLflow UI to view experiments
-   mlflow ui --backend-store-uri file://./mlruns
-   
-   # Then open: http://localhost:5000
-   ```
-
----
-
-## 🎨 Streamlit Dashboard
-
-### 🚀 Interactive Web Interface
-
-InsightDesk AI includes a comprehensive **Streamlit dashboard** that provides a user-friendly web interface for all system capabilities. The dashboard integrates seamlessly with the FastAPI backend to deliver real-time insights and analytics.
-
-#### 🌟 Dashboard Features
-
-| Tab | Feature | Description |
-|-----|---------|-------------|
-| **📨 Ticket Categorization** | AI Classification | Classify tickets with XGBoost + TensorFlow models |
-| **🔎 Solution Retrieval** | RAG Search | Find relevant solutions using semantic search |
-| **🚨 Anomaly Detection** | Real-time Monitoring | View and analyze system anomalies |
-| **📊 Monitoring & Drift** | Performance Tracking | Monitor model performance and data drift |
-| **🔄 Feedback** | Continuous Learning | Submit agent and customer feedback |
-
-#### 🚀 Quick Start
-
-##### Option 1: Full Stack Launch (Recommended)
-```bash
-# Launch both FastAPI + Streamlit automatically
-python scripts/launch_full_stack.py
-
-# Or using Makefile
+make lint
+make test
+make dashboard
 make full-stack
 ```
 
-##### Option 2: Manual Launch
-```bash
-# Terminal 1: Start FastAPI backend
-cd src
-python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+## Key endpoints
 
-# Terminal 2: Start Streamlit dashboard
-streamlit run app.py
+- `GET /health`
+- `POST /predict/category`
+- `POST /retrieve/solutions`
+- `GET /anomalies/recent`
+- `GET /monitoring/status`
+- `GET /feedback/stats`
 
-# Or using Makefile
-make run &        # FastAPI in background
-make dashboard    # Streamlit dashboard
-```
+Interactive API docs are available at `http://localhost:8000/docs`.
 
-##### Option 3: Demo Mode (No Backend Required)
-```bash
-# Run dashboard demo with mock data
-streamlit run demo_dashboard.py
+## Status
 
-# Or using Makefile
-make dashboard-demo
-```
+This is a working prototype and experimentation repo. Some of the more advanced graph, monitoring, and feedback integrations depend on local services or optional infrastructure to be fully enabled.
 
-#### 🎯 Dashboard Access
+#### Dashboard Access
 
 Once running, access the dashboard at:
 - **🎨 Main Dashboard**: http://localhost:8501
