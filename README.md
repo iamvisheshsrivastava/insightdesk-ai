@@ -404,7 +404,35 @@ pipeline = RAGPipeline(
     index_type="ivf"                                      # FAISS index type
 )
 
-# Search with custom parameters
+
+## 🚀 Single-Container Deployment
+
+Deploy frontend + backend in **one Docker container** to Fly.io, AWS EC2, or any Docker host.
+
+### Quick Deploy
+
+```bash
+# Local test (requires npm build first)
+cd frontend && npm install && npm run build && cd ..
+docker compose -f docker-compose.single.yml up --build
+# Open http://localhost:8000
+```
+
+### Deploy to Fly.io (5 min, free tier)
+
+```bash
+fly launch --name insightdesk-ai  # Auto-detects Dockerfile
+fly deploy
+# Your app: https://insightdesk-ai.fly.dev
+```
+
+See [SINGLE_DEPLOYMENT_GUIDE.md](SINGLE_DEPLOYMENT_GUIDE.md) for:
+- AWS EC2, Railway.app, Render.com, and Vercel options
+- Environment setup and troubleshooting
+- Scaling recommendations
+- Custom domain setup
+
+## Key endpoints
 results = pipeline.query_solutions(
     ticket_data,
     k=10,                    # Number of results

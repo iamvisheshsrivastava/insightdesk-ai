@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, validator
 from typing import Dict, List, Optional, Union, Any
 import logging
@@ -2551,3 +2553,32 @@ async def solve_ticket_agent(request: AgentRequest):
     except Exception as e:
         logger.error(f"Agent execution failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============= STATIC FILES & SPA ROUTING (For Single-Container Deployment) =============
+
+# Mount frontend static files (React build output)
+frontend_dist_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
+
+if frontend_dist_path.exists():
+    # Mount the static files directory
+    app.mount("/assets", StaticFiles(directory=frontend_dist_path / "assets", check_dir=False), name="assets")
+    logger.info(f"✅ Frontend assets mounted from {frontend_dist_path}")
+    
+    # Serve SPA index.html for all non-API routes
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve React SPA index.html for client-side routing."""
+        # Skip serving for actual files that exist (CSS, JS, images)
+        if full_path and ("." in full_path.split("/")[-1]):
+            file_path = frontend_dist_path / full_path
+            if file_path.exists():
+                return FileResponse(file_path)
+        
+        # Serve index.html for all other paths (SPA routing)
+        index_path = frontend_dist_path / "index.html"
+        if index_path.exists():
+            return FileResponse(index_path)
+        else:
+            raise HTTPException(status_code=404, detail="Frontend not built. Run 'npm run build' in frontend/")
+else:
+    logger.warning(f"⚠️ Frontend dist not found at {frontend_dist_path}. Run 'npm run build' in frontend/ first.")
