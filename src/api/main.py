@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
+import os
 
 # Configure structured logging
 logging.basicConfig(
@@ -252,14 +253,19 @@ class ModelManager:
             # Initialize Graph-RAG System
             if GRAPH_RAG_AVAILABLE:
                 try:
-                    # Initialize Neo4j graph manager (use environment variables or default config)
+                    # Require Neo4j password from environment to avoid insecure defaults.
+                    neo4j_password = os.getenv("NEO4J_PASSWORD")
+                    if not neo4j_password:
+                        logger.warning("⚠️ NEO4J_PASSWORD not set, skipping Graph-RAG initialization")
+                        raise ValueError("Missing NEO4J_PASSWORD")
+
                     neo4j_config = {
-                        "uri": "bolt://localhost:7687",
-                        "user": "neo4j",
-                        "password": "password",  # Should come from environment variable
-                        "database": "neo4j"
+                        "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+                        "user": os.getenv("NEO4J_USER", "neo4j"),
+                        "password": neo4j_password,
+                        "database": os.getenv("NEO4J_DATABASE", "neo4j")
                     }
-                    
+
                     self.graph_manager = Neo4jGraphManager(**neo4j_config)
                     
                     # Initialize hybrid RAG pipeline (requires both traditional RAG and graph)

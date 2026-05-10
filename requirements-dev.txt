@@ -1,0 +1,15 @@
+-r requirements-prod.txt
+
+pytest
+pytest-cov
+pytest-asyncio
+pytest-mock
+black
+isort
+flake8
+mypy
+bandit
+safety
+matplotlib
+seaborn
+streamlit

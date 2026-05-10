@@ -688,6 +688,12 @@ results = pipeline.query_solutions(
 ### Production Deployment
 
 ```bash
+# Install only runtime dependencies
+pip install -r requirements-prod.txt
+
+# Configure environment variables
+cp .env.example .env
+
 # Production deployment with Gunicorn
 gunicorn src.api.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 

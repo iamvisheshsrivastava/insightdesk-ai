@@ -42,11 +42,11 @@ feedback_demo_data/
 # Security
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 
 # Docker
-.dockerignore
 *.tar
 
 # CI/CD artifacts
