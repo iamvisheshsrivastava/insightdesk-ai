@@ -674,9 +674,22 @@ class GraphStatsResponse(BaseModel):
 
 
 # API Endpoints
-@app.get("/", response_model=Dict[str, str])
+@app.get("/")
 async def root():
-    """Root endpoint with basic API information."""
+    """Root endpoint: serve frontend or API info."""
+    import os
+    # Get absolute path to main.py directory
+    main_dir = os.path.dirname(os.path.abspath(__file__))  # /path/to/src/api
+    # Go up 2 levels to project root
+    project_root = os.path.dirname(os.path.dirname(main_dir))  # /path/to/
+    index_path = Path(project_root) / "frontend" / "dist" / "index.html"
+    
+    if index_path.exists():
+        logger.info(f"✅ Serving frontend from {index_path}")
+        return FileResponse(str(index_path))
+    
+    # Fallback to API info if frontend not built
+    logger.warning(f"⚠️ Frontend not found at {index_path}")
     return {
         "message": "InsightDesk AI API",
         "version": "1.0.0",
@@ -2292,7 +2305,22 @@ class ModelComparison(BaseModel):
 
 @app.get("/")
 def read_root():
-    """Health check endpoint."""
+    """Serve frontend SPA or return API info."""
+    import os
+    # Get absolute path to main.py directory
+    main_dir = os.path.dirname(os.path.abspath(__file__))  # /path/to/src/api
+    # Go up 2 levels to project root
+    project_root = os.path.dirname(os.path.dirname(main_dir))  # /path/to/
+    index_path = Path(project_root) / "frontend" / "dist" / "index.html"
+    logger.info(f"🔍 Root handler: main_dir = {main_dir}")
+    logger.info(f"🔍 Root handler: project_root = {project_root}")
+    logger.info(f"🔍 Root handler: index_path = {index_path}")
+    logger.info(f"🔍 Root handler: exists = {index_path.exists()}")
+    if index_path.exists():
+        logger.info(f"✅ Serving frontend from {index_path}")
+        return FileResponse(str(index_path))
+    # Fallback to API info if frontend not built
+    logger.warning(f"⚠️ Frontend not found at {index_path}, returning API info")
     return {
         "message": "InsightDesk AI API is running",
         "version": "1.0.0",

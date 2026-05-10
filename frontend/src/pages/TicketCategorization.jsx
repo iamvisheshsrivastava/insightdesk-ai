@@ -1,5 +1,28 @@
 import { useState } from 'react'
-import Plot from 'react-plotly.js'
+
+// Simple bar chart component
+const SimpleBar = ({ title, xLabels, yValues }) => {
+  const maxY = Math.max(...yValues, 1)
+  return (
+    <div style={{marginTop:12}}>
+      <h4>{title}</h4>
+      <div style={{display:'flex', gap:16, alignItems:'flex-end', height:200, justifyContent:'space-around'}}>
+        {xLabels.map((label, i) => (
+          <div key={i} style={{flex:1, textAlign:'center'}}>
+            <div style={{
+              height: (yValues[i] / maxY) * 150,
+              backgroundColor: ['#1f77b4','#ff7f0e','#2ca02c'][i % 3],
+              borderRadius:4,
+              marginBottom:8
+            }}></div>
+            <div style={{fontSize:12, fontWeight:'bold'}}>{label}</div>
+            <div style={{fontSize:11, color:'#666'}}>{(yValues[i] * 100).toFixed(1)}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function TicketCategorization() {
   const [subject, setSubject] = useState('')
@@ -90,7 +113,6 @@ export default function TicketCategorization() {
             <div>
               <h3>Results</h3>
 
-              {/* Summary metrics */}
               <div style={{display: 'flex', gap: 12}}>
                 <div className="card" style={{flex:1}}>
                   <strong>Recommended:</strong>
@@ -106,38 +128,12 @@ export default function TicketCategorization() {
                 </div>
               </div>
 
-              {/* Model confidence comparison chart */}
-              <div style={{marginTop:12}}>
-                <h4>Model Confidence Comparison</h4>
-                <Plot
-                  data={[
-                    {
-                      x: ['XGBoost','TensorFlow'],
-                      y: [result?.predictions?.xgboost?.confidence || 0, result?.predictions?.tensorflow?.confidence || 0],
-                      type: 'bar', marker: {color: ['#1f77b4','#ff7f0e']}
-                    }
-                  ]}
-                  layout={{width: '100%', height: 300, margin: {t:20}}}
-                  useResizeHandler
-                  style={{width: '100%'}}
+              {result?.predictions && (
+                <SimpleBar 
+                  title="Model Confidence Comparison"
+                  xLabels={['XGBoost', 'TensorFlow']} 
+                  yValues={[result?.predictions?.xgboost?.confidence || 0, result?.predictions?.tensorflow?.confidence || 0]} 
                 />
-              </div>
-
-              {/* Probability distribution (if available) */}
-              {result.probabilities && (
-                <div style={{marginTop:12}}>
-                  <h4>Top Category Probabilities</h4>
-                  <Plot
-                    data={[{
-                      x: Object.keys(result.probabilities),
-                      y: Object.values(result.probabilities),
-                      type: 'bar'
-                    }]}
-                    layout={{width:'100%', height:300, margin:{t:20}}}
-                    useResizeHandler
-                    style={{width:'100%'}}
-                  />
-                </div>
               )}
 
               <details style={{marginTop:12}}>
