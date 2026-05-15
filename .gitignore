@@ -20,6 +20,11 @@ data/
 *.csv
 *.json
 notebooks/*.ipynb
+# Allow npm manifests (*.json was too broad and blocked package.json)
+!package.json
+!package-lock.json
+!**/package.json
+!**/package-lock.json
 
 # OS / IDE
 .DS_Store
