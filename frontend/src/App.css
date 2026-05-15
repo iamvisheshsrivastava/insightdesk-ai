@@ -1,42 +1,9 @@
-:root{--bg:#f6f8fb;--card:#fff;--accent:#2563eb;--muted:#6b7280}
-*{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
-body{margin:0;background:var(--bg);color:#0f172a}
-.container{max-width:880px;margin:36px auto;padding:20px}
-header h1{margin:0 0 6px;font-size:1.6rem}
-.tagline{margin:0 0 18px;color:var(--muted)}
-.form{background:var(--card);padding:16px;border-radius:8px;box-shadow:0 1px 2px rgba(2,6,23,0.06)}
-.form label{display:block;margin-top:8px;font-weight:600}
-.form input,.form textarea{width:100%;padding:10px;margin-top:6px;border:1px solid #e6edf3;border-radius:6px}
-.actions{margin-top:12px;text-align:right}
-.actions button{background:var(--accent);color:#fff;padding:8px 14px;border:none;border-radius:6px;cursor:pointer}
-.result{margin-top:16px}
-.json{background:#0b1220;color:#c8f3ff;padding:12px;border-radius:6px;overflow:auto}
-.error{background:#fee2e2;color:#991b1b;padding:8px;border-radius:6px}
-footer{margin-top:18px;color:var(--muted)}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* App layout */
-.app-root{display:flex;min-height:100vh}
-.sidebar{width:220px;background:#0b1220;color:#fff;padding:20px;display:flex;flex-direction:column}
-.brand h2{margin:0}
-.nav{margin-top:18px;display:flex;flex-direction:column}
-.nav-btn{background:transparent;color:inherit;border:none;text-align:left;padding:8px 6px;margin:4px 0;border-radius:6px;cursor:pointer}
-.nav-btn.active{background:#10233b}
-.sidebar-footer{margin-top:auto;color:#cbd5e1;font-size:12px}
-.main-content{flex:1;padding:28px;background:var(--bg)}
-.page-header h1{margin:0}
-.page-header p{color:var(--muted);margin:6px 0 12px}
-.grid{display:grid;grid-template-columns:1fr 360px;gap:16px}
-.card{background:var(--card);padding:16px;border-radius:8px;box-shadow:0 1px 2px rgba(2,6,23,0.06)}
-.form-card input,.form-card textarea,.form-card select{width:100%;padding:8px;margin-top:6px;border:1px solid #e6edf3;border-radius:6px}
-.two-col{display:flex;gap:12px}
-.two-col > div{flex:1}
-.result-card .muted{color:var(--muted)}
-.solutions-list{list-style:none;padding:0}
-.solution-item{padding:8px;border-bottom:1px solid #f0f4f8}
-.anomaly{padding:8px;margin:8px 0;border-radius:6px}
-.anomaly.high{background:#fee2e2}
-.anomaly.medium{background:#fff3cd}
-.anomaly.low{background:#d1ecf1}
-.actions.small{display:flex;justify-content:flex-end}
-.muted{color:var(--muted)}
-
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
