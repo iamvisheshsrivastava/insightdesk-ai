@@ -1,28 +1,51 @@
+# Version control
 .git
-.gitignore
 .github
-.vscode
-.idea
-.venv
-venv
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache
-.mypy_cache
-.tox
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.tox/
 .coverage
-htmlcov
-notebooks
-mlruns
-logs
-demo_results
-test_results
-test_ab_data
-test_feedback_json
-feedback_demo_data
-results
-plots
-support_tickets.zip
+htmlcov/
+*.egg-info/
+
+# Secrets
+.env
+.env.*
+
+# Docs
 *.md
+validate-ci-cd.ps1
+
+# Tests / scripts / data artefacts
+tests/
+scripts/
+data/
+mlruns/
+results/
+demo_results/
+feedback_data/
+feedback_demo_data/
+logs/
+
+# Frontend build output and node_modules (rebuilt inside Docker)
+frontend/node_modules/
+frontend/dist/
+
+# Dev tooling
+.streamlit/
+.agent/
+.cache/
+.vscode/
+.idea/
+Makefile
+
+# Unused compose files
+docker-compose*.yml

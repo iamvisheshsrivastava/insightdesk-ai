@@ -35,15 +35,11 @@ RUN mkdir -p data plots logs && useradd --create-home --shell /bin/bash appuser
 ENV PYTHONPATH="/app:${PYTHONPATH}"
 ENV PYTHONUNBUFFERED=1
 
-# Expose port
+# Expose port (Heroku overrides this via the $PORT env var)
 EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
 
 # Run as non-root for better container security
 USER appuser
 
-# Run the API (which now serves both frontend + API)
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT is expanded at runtime (Heroku injects its own port)
+CMD uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}

@@ -31,6 +31,9 @@ notebooks/*.ipynb
 *.zip
 *.pkl
 *.joblib
+# Allow trained model artifacts inside models/ to be committed for deployment
+!models/*.pkl
+!models/*.joblib
 *.db
 *.sqlite3
 mlruns/
