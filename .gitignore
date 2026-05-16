@@ -51,6 +51,7 @@ feedback_demo_data/
 
 # Internal planning
 .agent/
+.claude/
 
 # Security
 .env
