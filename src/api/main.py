@@ -413,6 +413,21 @@ app = FastAPI(
 )
 
 
+# In production the React frontend calls /api/* (Vite proxy strips this in dev).
+# This middleware rewrites /api/X → /X so all route handlers work unchanged.
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class StripApiPrefixMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path.startswith("/api/"):
+            scope = request.scope
+            scope["path"] = scope["path"][4:]  # /api/foo → /foo
+            scope["raw_path"] = scope["path"].encode("latin-1")
+        return await call_next(request)
+
+app.add_middleware(StripApiPrefixMiddleware)
+
+
 # Pydantic Models
 class TicketInput(BaseModel):
     """Input schema for ticket data."""
