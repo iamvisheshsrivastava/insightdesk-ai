@@ -139,8 +139,7 @@ class ModelManager:
         """Load both ML models and initialize RAG pipeline."""
         try:
             from src.models.xgboost_classifier import XGBoostCategoryClassifier
-            from src.models.tensorflow_classifier import TensorFlowCategoryClassifier
-            
+
             # Load XGBoost model
             try:
                 self.xgb_classifier = XGBoostCategoryClassifier()
@@ -149,9 +148,13 @@ class ModelManager:
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load XGBoost model: {e}")
                 self.xgb_classifier = None
-            
-            # Load TensorFlow model
+
+            # Load TensorFlow model (optional - tensorflow isn't in
+            # requirements-prod.txt, so import failures here must not
+            # abort loading of the other models below).
             try:
+                from src.models.tensorflow_classifier import TensorFlowCategoryClassifier
+
                 self.tf_classifier = TensorFlowCategoryClassifier()
                 self.tf_classifier.load_model()
                 logger.info("✅ TensorFlow model loaded successfully")
