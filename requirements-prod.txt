@@ -12,5 +12,4 @@ scipy
 psutil
 tqdm
 requests
-sentence-transformers
-transformers
+fastembed

@@ -20,10 +20,9 @@ RUN npm install --no-audit --no-fund && npm run build
 # Back to app directory
 WORKDIR /app
 
-# Install CPU-only PyTorch first to avoid pulling in 2GB+ of CUDA libraries
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-
-# Copy production requirements and install remaining Python dependencies
+# Copy production requirements and install Python dependencies.
+# No torch/transformers - embeddings use fastembed (ONNX, ~100MB) to keep
+# the image and runtime memory small enough for free-tier hosting.
 COPY requirements-prod.txt .
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
