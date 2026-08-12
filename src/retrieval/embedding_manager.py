@@ -49,7 +49,13 @@ class EmbeddingManager:
 
         try:
             logger.info(f"Loading embedding model: {self.model_name}")
-            self.model = TextEmbedding(model_name=self.model_name)
+            # Pin onnxruntime's thread count - left at its default, it sizes
+            # itself off the host's full core count rather than the tiny CPU
+            # share a free-tier instance actually gets, causing severe
+            # contention that looks like a hang during encode_texts().
+            import os
+            threads = int(os.getenv("EMBEDDING_THREADS", "2"))
+            self.model = TextEmbedding(model_name=self.model_name, threads=threads)
 
             # Get embedding dimension
             test_embedding = np.array(list(self.model.embed(["test"])))
