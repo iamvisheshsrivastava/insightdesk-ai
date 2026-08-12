@@ -2,7 +2,9 @@
 
 AI-powered IT helpdesk platform that classifies support tickets, retrieves solutions via RAG, detects anomalies, and monitors model health — all through a modern React dashboard.
 
-**Live demo → https://insightdesk-ai-77c8cfe1286c.herokuapp.com/**
+**Live demo → https://insightdesk-ai-sqck.onrender.com/** (health: `/health`)
+
+> Previously hosted on Heroku; migrated to Render's free tier after Heroku removed free dynos.
 
 ---
 
@@ -11,7 +13,7 @@ AI-powered IT helpdesk platform that classifies support tickets, retrieves solut
 | Module | What it does |
 |---|---|
 | **Ticket Categorization** | Dual-model classification (XGBoost + deep model) with confidence scores |
-| **Solution Retrieval** | Semantic search over a knowledge base using FAISS + sentence-transformers |
+| **Solution Retrieval** | Semantic search over a knowledge base using FAISS + fastembed |
 | **Anomaly Detection** | Flags unusual patterns in ticket volume, response times, and model outputs |
 | **Model Monitoring** | Tracks accuracy, data drift, and latency across deployed models |
 | **Feedback Loop** | Star ratings and agent corrections feed back into model evaluation |
@@ -20,9 +22,9 @@ AI-powered IT helpdesk platform that classifies support tickets, retrieves solut
 
 ## Stack
 
-**Backend** — FastAPI · scikit-learn · XGBoost · FAISS · sentence-transformers · Uvicorn  
+**Backend** — FastAPI · scikit-learn · XGBoost · FAISS · fastembed · Uvicorn  
 **Frontend** — React 18 · Vite · Tailwind CSS · lucide-react  
-**Infra** — Docker · Heroku (container stack)
+**Infra** — Docker · Render (container stack)
 
 ---
 
@@ -60,15 +62,16 @@ insightdesk-ai/
 ├── frontend/         # React + Vite + Tailwind
 ├── models/           # Trained model artifacts (.pkl / .joblib)
 ├── Dockerfile
-└── heroku.yml
+├── render.yaml
+└── heroku.yml         # legacy, no longer used for deployment
 ```
 
 ---
 
 ## Deployment
 
-The app is containerised and deployed to Heroku via Docker:
+The app is containerised and deployed to Render (free tier) via `render.yaml`:
 
-```bash
-git push heroku main   # triggers a Docker build and deploy
-```
+1. On [Render](https://render.com), choose **New > Blueprint** and point it at this repo.
+2. Deploy. Render auto-redeploys on every push to `main` (`autoDeployTrigger: commit`).
+3. Confirm it's running via `/health`.
