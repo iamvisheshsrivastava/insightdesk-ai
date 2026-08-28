@@ -70,7 +70,7 @@ export default function TicketCategorization() {
           <Tag size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-slate-900">Ticket Classification</h1>
         </div>
-        <p className="text-slate-500 text-sm">Classify support tickets with dual-model AI (XGBoost + TensorFlow)</p>
+        <p className="text-slate-500 text-sm">Classify support tickets with AI (XGBoost)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

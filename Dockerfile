@@ -30,8 +30,12 @@ RUN pip install --no-cache-dir -r requirements-prod.txt
 COPY src/ src/
 COPY models/ models/
 
-# Create necessary directories
-RUN mkdir -p data plots logs && useradd --create-home --shell /bin/bash appuser
+# Create necessary directories and hand them (plus the rest of /app) to the
+# non-root user below - without this, appuser can't write feedback_data/,
+# data/, plots/, or logs/ at runtime (mkdir raises PermissionError, caught
+# silently, and endpoints like /feedback/summary return 503).
+RUN mkdir -p data plots logs feedback_data && useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /app
 
 # Set Python path
 ENV PYTHONPATH="/app:${PYTHONPATH}"
