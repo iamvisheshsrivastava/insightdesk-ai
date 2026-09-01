@@ -143,6 +143,39 @@ class Neo4jGraphManager:
             logger.error(f"Failed to clear graph: {e}")
             return False
     
+    def execute_query(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> List[Any]:
+        """
+        Execute a read-only Cypher query against the graph.
+
+        This runs inside a Neo4j read-access-mode transaction, so the
+        database server itself rejects any write operation (CREATE, MERGE,
+        SET, DELETE, etc.) regardless of the query text. This is enforced
+        by Neo4j's Bolt protocol transaction metadata, not by client-side
+        string matching, so it cannot be bypassed with keyword tricks.
+
+        Args:
+            query: Cypher query to execute (read-only).
+            parameters: Optional query parameters.
+
+        Returns:
+            List of result records.
+
+        Raises:
+            RuntimeError: If not connected to Neo4j.
+            Exception: If the query is rejected (e.g. it attempts a write).
+        """
+        if not self.driver:
+            raise RuntimeError("Neo4j driver not connected")
+
+        parameters = parameters or {}
+
+        def _run(tx):
+            result = tx.run(query, parameters)
+            return list(result)
+
+        with self.driver.session(database=self.database, default_access_mode="READ") as session:
+            return session.execute_read(_run)
+
     def create_product_node(self, product_id: str, properties: Dict[str, Any]) -> bool:
         """Create a Product node."""
         if not self.driver:

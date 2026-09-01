@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Union, Any
 import logging
 import time
 import json
+import re
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -328,7 +329,7 @@ class ModelManager:
                 
         except Exception as e:
             logger.error(f"Prediction error: {e}")
-            raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+            raise HTTPException(status_code=500, detail="Prediction failed. See server logs for details.")
         
         total_time = time.time() - start_time
         results["total_inference_time_ms"] = round(total_time * 1000, 2)
@@ -576,7 +577,7 @@ class RetrievalResponse(BaseModel):
 # Anomaly Detection models
 class AnomalyDetectionRequest(BaseModel):
     """Request model for anomaly detection."""
-    tickets_data: List[Dict[str, Any]] = Field(..., description="List of ticket data for anomaly analysis")
+    tickets_data: List[Dict[str, Any]] = Field(..., max_length=500, description="List of ticket data for anomaly analysis")
     detection_types: Optional[List[str]] = Field(None, description="Specific anomaly types to detect")
     days_lookback: int = Field(30, ge=1, le=365, description="Number of days to look back for analysis")
     
@@ -810,7 +811,7 @@ async def predict_category(
         # Generate ticket_id for error logging if not available
         error_ticket_id = ticket.ticket_id or f"error_{int(time.time())}"
         logger.error(f"Category prediction failed: ticket_id={error_ticket_id}, error={str(e)}")
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Prediction failed. See server logs for details.")
 
 
 @app.post("/predict/priority", response_model=PriorityPredictionResponse)
@@ -1029,7 +1030,7 @@ async def retrieve_solutions(
         logger.error(f"Solution retrieval failed: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Solution retrieval failed: {str(e)}"
+            detail="Solution retrieval failed. See server logs for details."
         )
 
 
@@ -1144,7 +1145,7 @@ async def detect_anomalies(
         logger.error(f"Anomaly detection failed: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Anomaly detection failed: {str(e)}"
+            detail="Anomaly detection failed. See server logs for details."
         )
 
 
@@ -1228,7 +1229,7 @@ async def get_recent_anomalies(
         logger.error(f"Failed to retrieve recent anomalies: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve recent anomalies: {str(e)}"
+            detail="Failed to retrieve recent anomalies. See server logs for details."
         )
 
 
@@ -1253,7 +1254,7 @@ async def list_experiments():
         }
     except Exception as e:
         logger.error(f"Failed to list experiments: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list experiments: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list experiments. See server logs for details.")
 
 
 @app.get("/experiments/{experiment_id}/runs")
@@ -1269,7 +1270,7 @@ async def list_runs(experiment_id: str):
         }
     except Exception as e:
         logger.error(f"Failed to list runs: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list runs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list runs. See server logs for details.")
 
 
 # ================================
@@ -1287,7 +1288,7 @@ class MonitoringStatusResponse(BaseModel):
 
 class DriftAnalysisRequest(BaseModel):
     """Request model for drift analysis."""
-    tickets: List[TicketInput]
+    tickets: List[TicketInput] = Field(..., max_length=500)
     model_name: str = "support_system"
     categorical_columns: List[str] = ["product", "priority", "category", "channel"]
     text_columns: List[str] = ["subject", "description"]
@@ -1344,7 +1345,7 @@ def get_monitoring_status(model_manager: ModelManager = Depends(get_model_manage
                 models_status = model_manager.performance_monitor.get_current_status()
             except Exception as e:
                 logger.warning(f"Failed to get performance status: {e}")
-                models_status = {"error": str(e)}
+                models_status = {"error": "Failed to get performance status. See server logs for details."}
         
         # Get drift status
         drift_status = {}
@@ -1353,7 +1354,7 @@ def get_monitoring_status(model_manager: ModelManager = Depends(get_model_manage
                 drift_status = model_manager.drift_detector.get_all_drift_status()
             except Exception as e:
                 logger.warning(f"Failed to get drift status: {e}")
-                drift_status = {"error": str(e)}
+                drift_status = {"error": "Failed to get drift status. See server logs for details."}
         
         # Get alerts summary
         alerts_summary = {}
@@ -1362,7 +1363,7 @@ def get_monitoring_status(model_manager: ModelManager = Depends(get_model_manage
                 alerts_summary = model_manager.alert_manager.get_alert_summary()
             except Exception as e:
                 logger.warning(f"Failed to get alerts summary: {e}")
-                alerts_summary = {"error": str(e)}
+                alerts_summary = {"error": "Failed to get alerts summary. See server logs for details."}
         
         # Determine overall status
         overall_status = "healthy"
@@ -1390,7 +1391,7 @@ def get_monitoring_status(model_manager: ModelManager = Depends(get_model_manage
         
     except Exception as e:
         logger.error(f"Error getting monitoring status: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get monitoring status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get monitoring status. See server logs for details.")
 
 
 @app.post("/monitoring/drift/analyze")
@@ -1450,7 +1451,7 @@ def analyze_drift(
         
     except Exception as e:
         logger.error(f"Error analyzing drift: {e}")
-        raise HTTPException(status_code=500, detail=f"Drift analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Drift analysis failed. See server logs for details.")
 
 
 @app.get("/monitoring/alerts", response_model=AlertResponse)
@@ -1509,7 +1510,7 @@ def get_alerts(
         
     except Exception as e:
         logger.error(f"Error getting alerts: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get alerts: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get alerts. See server logs for details.")
 
 
 @app.post("/monitoring/alerts/{alert_id}/acknowledge")
@@ -1545,7 +1546,7 @@ def acknowledge_alert(
         
     except Exception as e:
         logger.error(f"Error acknowledging alert: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to acknowledge alert: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to acknowledge alert. See server logs for details.")
 
 
 @app.post("/monitoring/alerts/{alert_id}/resolve")
@@ -1581,7 +1582,7 @@ def resolve_alert(
         
     except Exception as e:
         logger.error(f"Error resolving alert: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to resolve alert: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to resolve alert. See server logs for details.")
 
 
 @app.get("/monitoring/performance/{model_name}")
@@ -1617,7 +1618,7 @@ def get_performance_history(
         
     except Exception as e:
         logger.error(f"Error getting performance history: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get performance history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get performance history. See server logs for details.")
 
 
 @app.get("/monitoring/drift/{model_name}")
@@ -1653,18 +1654,22 @@ def get_drift_history(
         
     except Exception as e:
         logger.error(f"Error getting drift history: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get drift history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get drift history. See server logs for details.")
 
 
 @app.post("/monitoring/metrics/export")
 def export_metrics(
-    output_path: str,
     model_name: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     model_manager: ModelManager = Depends(get_model_manager)
 ):
-    """Export metrics to file."""
+    """Export metrics to file.
+
+    The destination path is always generated server-side inside a fixed,
+    non-web-served export directory. Clients cannot control where the
+    file is written.
+    """
     try:
         if not model_manager.monitoring_initialized:
             raise HTTPException(
@@ -1694,7 +1699,14 @@ def export_metrics(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid end_date format")
         
-        # Export metrics
+        # Export metrics to a fixed, server-controlled directory with a
+        # server-generated filename. The client never controls the path.
+        export_dir = Path("logs") / "monitoring" / "exports"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        safe_model_part = re.sub(r"[^A-Za-z0-9_.-]", "_", model_name) if model_name else "all"
+        export_filename = f"metrics_export_{safe_model_part}_{datetime.now().strftime('%Y%m%dT%H%M%S%f')}.json"
+        output_path = str(export_dir / export_filename)
+
         success = model_manager.metrics_logger.export_metrics(
             output_path, model_name, start_dt, end_dt
         )
@@ -1710,7 +1722,7 @@ def export_metrics(
         
     except Exception as e:
         logger.error(f"Error exporting metrics: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to export metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to export metrics. See server logs for details.")
 
 
 # =============================================================================
@@ -1763,7 +1775,7 @@ async def record_agent_correction(
         
     except Exception as e:
         logger.error(f"Error recording agent correction: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to record correction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to record correction. See server logs for details.")
 
 
 @app.post("/feedback/customer")
@@ -1813,7 +1825,7 @@ async def record_customer_feedback(
         
     except Exception as e:
         logger.error(f"Error recording customer feedback: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to record feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to record feedback. See server logs for details.")
 
 
 @app.get("/feedback/summary", response_model=FeedbackStatsResponse)
@@ -1861,7 +1873,7 @@ async def get_feedback_summary(
         
     except Exception as e:
         logger.error(f"Error generating feedback summary: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate summary. See server logs for details.")
 
 
 @app.get("/feedback/corrections")
@@ -1901,7 +1913,7 @@ async def get_agent_corrections(
         
     except Exception as e:
         logger.error(f"Error retrieving corrections: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve corrections: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve corrections. See server logs for details.")
 
 
 @app.get("/feedback/customer")
@@ -1941,7 +1953,7 @@ async def get_customer_feedback(
         
     except Exception as e:
         logger.error(f"Error retrieving customer feedback: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve feedback. See server logs for details.")
 
 
 @app.get("/feedback/trends/{model_type}")
@@ -1986,7 +1998,7 @@ async def get_model_performance_trends(
         
     except Exception as e:
         logger.error(f"Error retrieving performance trends: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve trends: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve trends. See server logs for details.")
 
 
 @app.get("/feedback/agent/{agent_id}")
@@ -2021,7 +2033,7 @@ async def get_agent_performance_analysis(
         
     except Exception as e:
         logger.error(f"Error analyzing agent performance: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to analyze performance: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to analyze performance. See server logs for details.")
 
 
 @app.get("/feedback/health")
@@ -2050,7 +2062,7 @@ async def get_feedback_health(
         logger.error(f"Error checking feedback health: {e}")
         return {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Failed to check feedback health. See server logs for details.",
             "timestamp": datetime.now().isoformat()
         }
 
@@ -2170,7 +2182,7 @@ async def retrieve_graph_solutions(
         logger.error(f"Graph-RAG retrieval error: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Graph-RAG retrieval failed: {str(e)}"
+            detail="Graph-RAG retrieval failed. See server logs for details."
         )
 
 
@@ -2215,7 +2227,7 @@ async def get_graph_stats(
         logger.error(f"Error retrieving graph stats: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve graph statistics: {str(e)}"
+            detail="Failed to retrieve graph statistics. See server logs for details."
         )
 
 
@@ -2226,13 +2238,15 @@ async def query_graph_directly(
     manager: ModelManager = Depends(get_model_manager)
 ):
     """
-    Execute a direct Cypher query against the knowledge graph.
-    
+    Execute a direct, read-only Cypher query against the knowledge graph.
+
     This endpoint allows advanced users to run custom Cypher queries
     for debugging and advanced analytics purposes.
-    
-    **Warning**: This endpoint exposes direct database access.
-    Use with caution in production environments.
+
+    **Warning**: This endpoint exposes direct database access. The query
+    is executed inside a Neo4j read-only transaction, so write operations
+    (CREATE, MERGE, SET, DELETE, etc.) are rejected by the database server
+    itself, not by client-side keyword matching.
     """
     try:
         # Check if Graph-RAG system is available
@@ -2241,24 +2255,15 @@ async def query_graph_directly(
                 status_code=503,
                 detail="Graph-RAG system not available. Please check if Neo4j is running."
             )
-        
+
         if not manager.graph_rag_initialized or not manager.graph_manager:
             raise HTTPException(
                 status_code=503,
                 detail="Graph manager not initialized. Please check server logs."
             )
-        
-        # Validate query safety (basic check)
-        unsafe_keywords = ["DELETE", "DROP", "CREATE INDEX", "REMOVE"]
-        query_upper = query.upper()
-        for keyword in unsafe_keywords:
-            if keyword in query_upper:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unsafe query operation '{keyword}' not allowed"
-                )
-        
-        # Execute query
+
+        # Execute query (read-only transaction; the DB server itself
+        # rejects any write operation regardless of query text)
         start_time = time.time()
         results = manager.graph_manager.execute_query(query, parameters or {})
         execution_time = time.time() - start_time
@@ -2290,7 +2295,7 @@ async def query_graph_directly(
         logger.error(f"Error executing graph query: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to execute graph query: {str(e)}"
+            detail="Failed to execute graph query. See server logs for details."
         )
 
 
@@ -2301,7 +2306,7 @@ if __name__ == "__main__":
 
 class TicketBatchInput(BaseModel):
     """Input schema for batch ticket classification."""
-    tickets: List[TicketInput] = Field(..., description="List of tickets to classify")
+    tickets: List[TicketInput] = Field(..., max_length=500, description="List of tickets to classify")
 
 
 class CategoryPrediction(BaseModel):
@@ -2398,7 +2403,7 @@ def classify_ticket_xgboost(ticket: TicketInput, manager: ModelManager = Depends
         
     except Exception as e:
         logger.error(f"Error in XGBoost classification: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Classification failed. See server logs for details.")
 
 
 @app.post("/classify/tensorflow", response_model=CategoryPrediction)
@@ -2431,7 +2436,7 @@ def classify_ticket_tensorflow(ticket: TicketInput, manager: ModelManager = Depe
         
     except Exception as e:
         logger.error(f"Error in TensorFlow classification: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Classification failed. See server logs for details.")
 
 
 @app.post("/classify/compare", response_model=ModelComparison)
@@ -2521,7 +2526,7 @@ def classify_tickets_batch_xgboost(batch: TicketBatchInput, manager: ModelManage
         
     except Exception as e:
         logger.error(f"Error in batch XGBoost classification: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Batch classification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Batch classification failed. See server logs for details.")
 
 
 @app.post("/classify/batch/tensorflow", response_model=List[CategoryPrediction])
@@ -2560,7 +2565,7 @@ def classify_tickets_batch_tensorflow(batch: TicketBatchInput, manager: ModelMan
         
     except Exception as e:
         logger.error(f"Error in batch TensorFlow classification: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Batch classification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Batch classification failed. See server logs for details.")
 
 
 @app.get("/models/info")
@@ -2598,7 +2603,7 @@ async def solve_ticket_agent(request: AgentRequest):
         return AgentResponse(result=result)
     except Exception as e:
         logger.error(f"Agent execution failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. See server logs for details.")
 
 # ============= STATIC FILES & SPA ROUTING (For Single-Container Deployment) =============
 
@@ -2616,8 +2621,12 @@ if frontend_dist_path.exists():
         """Serve React SPA index.html for client-side routing."""
         # Skip serving for actual files that exist (CSS, JS, images)
         if full_path and ("." in full_path.split("/")[-1]):
-            file_path = frontend_dist_path / full_path
-            if file_path.exists():
+            file_path = (frontend_dist_path / full_path).resolve()
+            frontend_dist_resolved = frontend_dist_path.resolve()
+            if (
+                file_path == frontend_dist_resolved
+                or frontend_dist_resolved in file_path.parents
+            ) and file_path.is_file():
                 return FileResponse(file_path)
         
         # Serve index.html for all other paths (SPA routing)
