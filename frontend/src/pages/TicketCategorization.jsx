@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Loader2, Tag, CheckCircle, Cpu, Zap } from 'lucide-react'
+import { apiHeaders } from '../lib/apiHeaders'
 
 const CATEGORIES = ['Technical Issue', 'Billing', 'Feature Request', 'Bug Report', 'Account', 'Other']
 const CATEGORY_COLORS = {
@@ -47,7 +48,7 @@ export default function TicketCategorization() {
     try {
       const res = await fetch('/api/predict/category', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ subject, description, error_logs: errorLogs, stack_trace: stackTrace, product, priority, severity }),
       })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)

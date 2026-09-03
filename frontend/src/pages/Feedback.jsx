@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MessageSquare, Loader2, CheckCircle, Star } from 'lucide-react'
+import { apiHeaders } from '../lib/apiHeaders'
 
 function StarRating({ value, onChange }) {
   const [hovered, setHovered] = useState(0)
@@ -41,7 +42,7 @@ export default function Feedback() {
     try {
       const res = await fetch('/api/feedback/agent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           ticket_id: ticketId, predicted_category: predCategory,
           actual_category: actualCategory, prediction_correct: predictionCorrect,

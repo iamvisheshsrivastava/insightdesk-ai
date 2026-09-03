@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Search, Loader2, FileText, TrendingUp } from 'lucide-react'
+import { apiHeaders } from '../lib/apiHeaders'
 
 function ScoreBadge({ score }) {
   const pct = score != null ? Math.round(score * 100) : null
@@ -26,7 +27,7 @@ export default function SolutionRetrieval() {
     try {
       const res = await fetch('/api/retrieve/solutions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ subject: subject || 'General Issue', description, k: topK, search_type: searchType }),
       })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)

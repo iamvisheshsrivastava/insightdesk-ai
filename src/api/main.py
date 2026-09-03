@@ -432,6 +432,42 @@ class StripApiPrefixMiddleware(BaseHTTPMiddleware):
 app.add_middleware(StripApiPrefixMiddleware)
 
 
+# --- Optional shared API-key auth (see issue #15) ---------------------------
+# This is a lightweight deterrent for a public demo, NOT a real security
+# boundary. The key (if configured) is a single shared secret; anyone who has
+# it (including anyone who can read it out of the deployed frontend's built
+# JS bundle) can use it. It exists to keep casual bots/scrapers from hammering
+# an unauthenticated public API with expensive model-inference or batch
+# requests, not to protect sensitive data or distinguish real users. If this
+# project ever needs actual security (per-user quotas, private data, billing,
+# etc.), it should be replaced with real per-user authentication.
+#
+# Behavior:
+#   - API_KEY unset (default, and the current Render deployment): every
+#     endpoint stays fully open, exactly as before this change. This keeps
+#     the public portfolio demo working with zero configuration.
+#   - API_KEY set: state-mutating/expensive endpoints (model inference,
+#     feedback writes, monitoring actions, batch/graph queries) require a
+#     matching `X-API-Key` header, or they return 401. Cheap read-only
+#     endpoints (/, /health, /models/info, listing/analytics GETs) remain
+#     open regardless, so uptime checks and dashboards keep working.
+from fastapi import Header
+
+API_KEY = os.getenv("API_KEY")
+
+
+async def require_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
+    """FastAPI dependency enforcing the optional shared API key.
+
+    No-op (always passes) when API_KEY is not configured in the environment,
+    so the public demo behaves exactly as it did before this feature existed.
+    """
+    if not API_KEY:
+        return
+    if not x_api_key or x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key header")
+
+
 # Pydantic Models
 class TicketInput(BaseModel):
     """Input schema for ticket data."""
@@ -732,7 +768,7 @@ async def health_check(manager: ModelManager = Depends(get_model_manager)):
     )
 
 
-@app.post("/predict/category", response_model=CategoryPredictionResponse)
+@app.post("/predict/category", response_model=CategoryPredictionResponse, dependencies=[Depends(require_api_key)])
 async def predict_category(
     ticket: TicketInput,
     model_type: str = "both",
@@ -814,7 +850,7 @@ async def predict_category(
         raise HTTPException(status_code=500, detail="Prediction failed. See server logs for details.")
 
 
-@app.post("/predict/priority", response_model=PriorityPredictionResponse)
+@app.post("/predict/priority", response_model=PriorityPredictionResponse, dependencies=[Depends(require_api_key)])
 async def predict_priority(ticket: TicketInput):
     """
     Predict ticket priority (future implementation).
@@ -922,7 +958,7 @@ def generate_demo_solutions(subject: str, description: str, k: int, search_type:
     return solutions
 
 
-@app.post("/retrieve/solutions", response_model=RetrievalResponse)
+@app.post("/retrieve/solutions", response_model=RetrievalResponse, dependencies=[Depends(require_api_key)])
 async def retrieve_solutions(
     request: RetrievalRequest,
     manager: ModelManager = Depends(get_model_manager)
@@ -1052,7 +1088,7 @@ async def get_models_info(manager: ModelManager = Depends(get_model_manager)):
     return info
 
 
-@app.post("/anomalies/detect", response_model=AnomalyDetectionResponse)
+@app.post("/anomalies/detect", response_model=AnomalyDetectionResponse, dependencies=[Depends(require_api_key)])
 async def detect_anomalies(
     request: AnomalyDetectionRequest,
     manager: ModelManager = Depends(get_model_manager)
@@ -1394,7 +1430,7 @@ def get_monitoring_status(model_manager: ModelManager = Depends(get_model_manage
         raise HTTPException(status_code=500, detail="Failed to get monitoring status. See server logs for details.")
 
 
-@app.post("/monitoring/drift/analyze")
+@app.post("/monitoring/drift/analyze", dependencies=[Depends(require_api_key)])
 def analyze_drift(
     request: DriftAnalysisRequest,
     model_manager: ModelManager = Depends(get_model_manager)
@@ -1513,7 +1549,7 @@ def get_alerts(
         raise HTTPException(status_code=500, detail="Failed to get alerts. See server logs for details.")
 
 
-@app.post("/monitoring/alerts/{alert_id}/acknowledge")
+@app.post("/monitoring/alerts/{alert_id}/acknowledge", dependencies=[Depends(require_api_key)])
 def acknowledge_alert(
     alert_id: str,
     note: str = "",
@@ -1549,7 +1585,7 @@ def acknowledge_alert(
         raise HTTPException(status_code=500, detail="Failed to acknowledge alert. See server logs for details.")
 
 
-@app.post("/monitoring/alerts/{alert_id}/resolve")
+@app.post("/monitoring/alerts/{alert_id}/resolve", dependencies=[Depends(require_api_key)])
 def resolve_alert(
     alert_id: str,
     note: str = "",
@@ -1657,7 +1693,7 @@ def get_drift_history(
         raise HTTPException(status_code=500, detail="Failed to get drift history. See server logs for details.")
 
 
-@app.post("/monitoring/metrics/export")
+@app.post("/monitoring/metrics/export", dependencies=[Depends(require_api_key)])
 def export_metrics(
     model_name: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -1729,7 +1765,7 @@ def export_metrics(
 # FEEDBACK LOOP ENDPOINTS
 # =============================================================================
 
-@app.post("/feedback/correction")
+@app.post("/feedback/correction", dependencies=[Depends(require_api_key)])
 async def record_agent_correction(
     request: AgentCorrectionRequest,
     model_manager: ModelManager = Depends(get_model_manager)
@@ -1778,7 +1814,7 @@ async def record_agent_correction(
         raise HTTPException(status_code=500, detail="Failed to record correction. See server logs for details.")
 
 
-@app.post("/feedback/customer")
+@app.post("/feedback/customer", dependencies=[Depends(require_api_key)])
 async def record_customer_feedback(
     request: CustomerFeedbackRequest,
     model_manager: ModelManager = Depends(get_model_manager)
@@ -2068,7 +2104,7 @@ async def get_feedback_health(
 
 
 # Graph-RAG Endpoints
-@app.post("/retrieve/graph", response_model=GraphRetrievalResponse)
+@app.post("/retrieve/graph", response_model=GraphRetrievalResponse, dependencies=[Depends(require_api_key)])
 async def retrieve_graph_solutions(
     request: GraphRetrievalRequest,
     manager: ModelManager = Depends(get_model_manager)
@@ -2231,7 +2267,7 @@ async def get_graph_stats(
         )
 
 
-@app.post("/retrieve/graph/query")
+@app.post("/retrieve/graph/query", dependencies=[Depends(require_api_key)])
 async def query_graph_directly(
     query: str,
     parameters: Optional[Dict[str, Any]] = None,
@@ -2367,13 +2403,13 @@ def health_check(manager: ModelManager = Depends(get_model_manager)):
     }
 
 
-@app.post("/tickets", response_model=CategoryPrediction)
+@app.post("/tickets", response_model=CategoryPrediction, dependencies=[Depends(require_api_key)])
 def create_ticket(ticket: TicketInput):
     """Create and classify a ticket (legacy endpoint for backward compatibility)."""
     return classify_ticket_xgboost(ticket)
 
 
-@app.post("/classify/xgboost", response_model=CategoryPrediction)
+@app.post("/classify/xgboost", response_model=CategoryPrediction, dependencies=[Depends(require_api_key)])
 def classify_ticket_xgboost(ticket: TicketInput, manager: ModelManager = Depends(get_model_manager)):
     """Classify ticket using XGBoost model."""
     try:
@@ -2406,7 +2442,7 @@ def classify_ticket_xgboost(ticket: TicketInput, manager: ModelManager = Depends
         raise HTTPException(status_code=500, detail="Classification failed. See server logs for details.")
 
 
-@app.post("/classify/tensorflow", response_model=CategoryPrediction)
+@app.post("/classify/tensorflow", response_model=CategoryPrediction, dependencies=[Depends(require_api_key)])
 def classify_ticket_tensorflow(ticket: TicketInput, manager: ModelManager = Depends(get_model_manager)):
     """Classify ticket using TensorFlow model."""
     try:
@@ -2439,7 +2475,7 @@ def classify_ticket_tensorflow(ticket: TicketInput, manager: ModelManager = Depe
         raise HTTPException(status_code=500, detail="Classification failed. See server logs for details.")
 
 
-@app.post("/classify/compare", response_model=ModelComparison)
+@app.post("/classify/compare", response_model=ModelComparison, dependencies=[Depends(require_api_key)])
 def compare_models(ticket: TicketInput, manager: ModelManager = Depends(get_model_manager)):
     """Compare predictions from both models."""
     xgb_result = None
@@ -2490,7 +2526,7 @@ def compare_models(ticket: TicketInput, manager: ModelManager = Depends(get_mode
     )
 
 
-@app.post("/classify/batch/xgboost", response_model=List[CategoryPrediction])
+@app.post("/classify/batch/xgboost", response_model=List[CategoryPrediction], dependencies=[Depends(require_api_key)])
 def classify_tickets_batch_xgboost(batch: TicketBatchInput, manager: ModelManager = Depends(get_model_manager)):
     """Classify multiple tickets using XGBoost model."""
     try:
@@ -2529,7 +2565,7 @@ def classify_tickets_batch_xgboost(batch: TicketBatchInput, manager: ModelManage
         raise HTTPException(status_code=500, detail="Batch classification failed. See server logs for details.")
 
 
-@app.post("/classify/batch/tensorflow", response_model=List[CategoryPrediction])
+@app.post("/classify/batch/tensorflow", response_model=List[CategoryPrediction], dependencies=[Depends(require_api_key)])
 def classify_tickets_batch_tensorflow(batch: TicketBatchInput, manager: ModelManager = Depends(get_model_manager)):
     """Classify multiple tickets using TensorFlow model."""
     try:
@@ -2587,7 +2623,7 @@ class AgentResponse(BaseModel):
     """Response model for agentic solution."""
     result: Dict[str, Any]
 
-@app.post("/agent/solve", response_model=AgentResponse)
+@app.post("/agent/solve", response_model=AgentResponse, dependencies=[Depends(require_api_key)])
 async def solve_ticket_agent(request: AgentRequest):
     """
     Solve a ticket using the Agentic AI Orchestrator.
