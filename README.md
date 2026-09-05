@@ -12,7 +12,7 @@ AI-powered IT helpdesk platform that classifies support tickets, retrieves solut
 
 | Module | What it does |
 |---|---|
-| **Ticket Categorization** | Dual-model classification (XGBoost + deep model) with confidence scores |
+| **Ticket Categorization** | XGBoost classification with confidence scores (a TensorFlow variant exists in the code but isn't shipped to prod — see [Stack](#stack)) |
 | **Solution Retrieval** | Semantic search over a knowledge base using FAISS + fastembed |
 | **Anomaly Detection** | Flags unusual patterns in ticket volume, response times, and model outputs |
 | **Model Monitoring** | Tracks accuracy, data drift, and latency across deployed models |
@@ -25,6 +25,8 @@ AI-powered IT helpdesk platform that classifies support tickets, retrieves solut
 **Backend** — FastAPI · scikit-learn · XGBoost · FAISS · fastembed · Uvicorn  
 **Frontend** — React 18 · Vite · Tailwind CSS · lucide-react  
 **Infra** — Docker · Render (container stack)
+
+There's also a TensorFlow classifier still in `src/models/`, wired up behind a try/except import so the app doesn't crash without it, but TensorFlow isn't in any `requirements*.txt` — it's dead weight from an earlier version, not something you can currently turn on. The RAG pipeline used to run on sentence-transformers + torch, which was swapped for fastembed to cut the Docker image down to something Render's free tier could actually build in time.
 
 ---
 
