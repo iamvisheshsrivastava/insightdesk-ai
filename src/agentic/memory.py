@@ -10,6 +10,7 @@ The memory system is crucial for the Plan-Act-Observe-Reflect loop, allowing age
 to build upon previous actions and observations.
 """
 
+from datetime import datetime
 from typing import Any, Dict, List
 from src.agentic.core import AgentAction, AgentObservation
 
@@ -29,7 +30,7 @@ class AgentMemory:
             traces from the current agent execution session. Each entry contains:
             - action: The action taken by the agent (serialized)
             - observation: The result/feedback from executing that action
-            - timestamp: When this trace was recorded (currently placeholder)
+            - timestamp: ISO 8601 timestamp of when this trace was recorded
     
     Example:
         >>> memory = AgentMemory()
@@ -77,16 +78,13 @@ class AgentMemory:
                 - output: The actual result data (if successful)
                 - error: Error message (if the action failed)
         
-        Note:
-            The timestamp field is currently a placeholder ("TODO") and should be
-            replaced with actual datetime values in production.
         """
         # Serialize the action and observation objects to dictionaries for storage
         # This allows for easy JSON serialization and persistence if needed
         self.short_term.append({
             "action": action.dict(),  # Convert Pydantic model to dict
             "observation": observation.dict(),  # Convert Pydantic model to dict
-            "timestamp": "TODO"  # TODO: Replace with datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat()
         })
     
     def get_context(self) -> str:
