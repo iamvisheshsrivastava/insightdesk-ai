@@ -20,6 +20,15 @@ AI-powered IT helpdesk platform that classifies support tickets, retrieves solut
 
 ---
 
+## Screenshots
+
+| Ticket Classification (landing) | Real ticket submitted | Monitoring & Drift |
+|---|---|---|
+| ![Ticket Classification landing page](docs/screenshots/dashboard-landing.png) | ![Prediction result for a real password-reset ticket](docs/screenshots/ticket-classification-result.png) | ![Monitoring & Drift dashboard](docs/screenshots/monitoring-drift.png) |
+| The default view when the app loads, before any ticket is submitted. | Submitted subject "Cannot log in to my account after password reset" with a matching description. The model returned `Unknown` at 21% XGBoost confidence — a live example of the feature-starvation issue tracked in [#16](https://github.com/iamvisheshsrivastava/insightdesk-ai/issues/16). | Live metrics page; accuracy/F1/drift read 0% here because no evaluation run has been recorded yet in this environment. |
+
+---
+
 ## Stack
 
 **Backend** — FastAPI · scikit-learn · XGBoost · FAISS · fastembed · Uvicorn  
