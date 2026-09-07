@@ -249,35 +249,45 @@ class AgentOrchestrator:
         # Initialize variables to collect results from the history
         classification = None  # Will store ticket classification results
         solutions = []  # Will store retrieved solutions from knowledge base
-        
+        errors = []  # Will store any tool errors encountered along the way
+
         # Scan through the execution history to extract relevant observations
         for item in state.history:
             # Only process observations (skip actions)
             if isinstance(item, AgentObservation):
+                # Record any error so failures aren't silently dropped from
+                # the response - see issue #18.
+                if item.error:
+                    errors.append({"tool_name": item.tool_name, "error": item.error})
+
                 # Check if this is a classification result
                 if item.tool_name == "ticket_classifier" and item.output:
                     classification = item.output
-                    
+
                 # Check if this is a solution retrieval result
                 elif item.tool_name == "solution_retriever" and item.output:
                     # Extract the solutions list from the tool output
                     solutions = item.output.get("found_solutions", [])
-        
+
         # Construct the final response structure
         return {
             # Echo back the ticket ID for reference
             "ticket_id": state.ticket_data.get("ticket_id"),
-            
+
             # Provide a human-readable summary of what the agent did
             # Extract the 'log' field from each action for readability
             "agent_plan": [a.log for a in state.history if isinstance(a, AgentAction)],
-            
+
             # Package the analysis results
             "analysis": {
                 "classification": classification,  # May be None if classification failed
                 "suggested_solutions": solutions  # May be empty if retrieval failed/skipped
             },
-            
+
+            # Any tool errors encountered during execution, so callers can
+            # tell a genuine failure apart from "nothing needed to run".
+            "errors": errors,
+
             # Determine overall status based on whether we got classification
             # Classification is considered essential, solutions are optional
             "status": "success" if classification else "partial"
