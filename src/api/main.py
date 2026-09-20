@@ -1,13 +1,13 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 from typing import Dict, List, Optional, Union, Any
 import logging
 import time
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from pathlib import Path
 import os
@@ -338,40 +338,67 @@ class ModelManager:
         return results
 
 
+# Keywords per category, using the labels the trained models actually emit.
+CATEGORY_KEYWORDS = {
+    "Security": ["security", "breach", "vulnerab", "phishing", "unauthorized", "malware", "suspicious", "leak", "2fa", "mfa", "hacked"],
+    "Data Issue": ["data", "missing records", "corrupt", "export", "import", "sync", "duplicate", "report", "database", "migration"],
+    "Feature Request": ["feature", "request", "enhancement", "suggestion", "would like", "please add", "improve", "wish"],
+    "Account Management": ["login", "log in", "password", "account", "access", "permission", "authentication", "invoice", "billing", "subscription", "license", "sign in"],
+    "Technical Issue": ["error", "timeout", "crash", "server", "bug", "failure", "exception", "not working", "broken", "slow", "outage"],
+}
+LOW_CONFIDENCE_THRESHOLD = 0.35
+
+
+def keyword_category_hint(ticket):
+    """Return the best keyword-matched category for a ticket, or None if nothing matches.
+
+    Deterministic (ties resolved by CATEGORY_KEYWORDS order).
+    """
+    get = (lambda k: ticket.get(k)) if isinstance(ticket, dict) else (lambda k: getattr(ticket, k, None))
+    text = f"{get('subject') or ''} {get('description') or ''} {get('error_logs') or ''}".lower()
+    scores = {c: sum(1 for kw in kws if kw in text) for c, kws in CATEGORY_KEYWORDS.items()}
+    best = max(scores.values())
+    if best == 0:
+        return None
+    return next(c for c, sc in scores.items() if sc == best)
+
+
 def generate_mock_classification(ticket):
-    """Generate a mock classification based on ticket content for demo purposes."""
-    import random
-    
-    # Define categories and keywords
-    categories = {
-        "Technical Issue": ["error", "timeout", "connection", "server", "database", "crash", "bug", "failure"],
-        "Feature Request": ["add", "feature", "improve", "enhancement", "request", "suggestion", "new"],
-        "Bug Report": ["bug", "issue", "problem", "broken", "not working", "error", "incorrect"],
-        "Account Issue": ["login", "password", "account", "access", "permission", "authentication"],
-        "Billing": ["payment", "billing", "invoice", "charge", "subscription", "cost", "price"]
-    }
-    
-    # Combine subject and description for analysis
-    text_content = f"{ticket.subject or ''} {ticket.description or ''} {ticket.error_logs or ''}".lower()
-    
-    # Score each category based on keyword matches
-    scores = {}
-    for category, keywords in categories.items():
-        score = sum(1 for keyword in keywords if keyword in text_content)
-        scores[category] = score
-    
-    # If no keywords match, use priority/severity to guess
-    if all(score == 0 for score in scores.values()):
-        if ticket.priority in ["High", "Critical"] or ticket.severity in ["3 - High", "4 - Critical"]:
-            return "Technical Issue"
-        else:
-            return "Feature Request"
-    
-    # Return category with highest score, or random if tied
-    max_score = max(scores.values())
-    best_categories = [cat for cat, score in scores.items() if score == max_score]
-    
-    return random.choice(best_categories)
+    """Generate a demo classification from ticket keywords (used when no models are loaded)."""
+    hint = keyword_category_hint(ticket)
+    if hint:
+        return hint
+    if ticket.priority in ["high", "critical"] or ticket.severity in ["major", "critical"]:
+        return "Technical Issue"
+    return "Feature Request"
+
+
+def annotate_low_confidence(predictions: Dict, ticket_dict: Dict) -> None:
+    """Flag weak model output and attach a keyword-based suggestion (in place)."""
+    for name in ("xgboost", "tensorflow"):
+        pred = predictions.get(name)
+        if not isinstance(pred, dict) or "confidence" not in pred:
+            continue
+        if pred["confidence"] < LOW_CONFIDENCE_THRESHOLD:
+            pred["low_confidence"] = True
+            hint = keyword_category_hint(ticket_dict)
+            if hint:
+                pred["keyword_suggestion"] = hint
+
+
+def generate_demo_anomalies(days: int = 7) -> List[Dict]:
+    """Static, clearly-labelled demo anomalies used when detection is unavailable."""
+    now = datetime.now()
+    rows = [
+        ("volume_spike", "high", "Demo: login-related tickets up 3.2x versus the 7-day baseline.", 2),
+        ("new_issue", "medium", "Demo: new cluster of 'export to CSV times out' tickets.", 9),
+        ("sentiment_shift", "low", "Demo: customer sentiment for Billing dipped slightly.", 30),
+    ]
+    return [
+        {"type": t, "severity": sev, "details": d, "demo": True,
+         "timestamp": (now - timedelta(hours=h)).isoformat()}
+        for t, sev, d, h in rows if h <= days * 24
+    ]
 
 
 # Global model manager instance
@@ -496,6 +523,15 @@ class TicketInput(BaseModel):
     affected_users: Optional[int] = Field(1, ge=1, description="Number of affected users")
     resolution_time_hours: Optional[float] = Field(0.0, ge=0, description="Resolution time in hours")
     
+    @root_validator(skip_on_failure=True)
+    def derive_text_length(cls, values):
+        """Compute ticket_text_length from the text when the caller omitted it."""
+        if not values.get('ticket_text_length'):
+            values['ticket_text_length'] = sum(
+                len(values.get(k) or '') for k in ('subject', 'description', 'error_logs', 'stack_trace')
+            )
+        return values
+
     @validator('priority')
     def validate_priority(cls, v):
         valid_priorities = ['low', 'medium', 'high', 'critical']
@@ -803,14 +839,11 @@ async def predict_category(
             ticket_id=ticket.ticket_id or f"demo_{int(time.time())}",
             predictions={
                 "xgboost": {
+                    "predicted_category": mock_category,
                     "category": mock_category,
                     "confidence": mock_confidence,
-                    "model_type": "demo"
-                },
-                "tensorflow": {
-                    "category": mock_category,
-                    "confidence": mock_confidence,
-                    "model_type": "demo"
+                    "model_type": "demo",
+                    "note": "ML models not loaded - keyword-based demo prediction"
                 }
             },
             available_models=["demo"],
@@ -829,6 +862,7 @@ async def predict_category(
         
         # Get predictions
         predictions = manager.predict_category(ticket_dict, model_type)
+        annotate_low_confidence(predictions, ticket_dict)
         
         # Log successful prediction
         logger.info(f"Category prediction successful: ticket_id={ticket_dict['ticket_id']}")
@@ -1109,9 +1143,20 @@ async def detect_anomalies(
     try:
         # Check if anomaly detection is available
         if not manager.anomaly_initialized or not manager.anomaly_detector:
-            raise HTTPException(
-                status_code=503,
-                detail="Anomaly detection not available. Please check server logs."
+            logger.warning("Anomaly detector unavailable, returning demo data")
+            demo = generate_demo_anomalies(request.days_lookback)
+            sev, typ = {}, {}
+            for a in demo:
+                sev[a["severity"]] = sev.get(a["severity"], 0) + 1
+                typ[a["type"]] = typ.get(a["type"], 0) + 1
+            end = datetime.now()
+            return AnomalyDetectionResponse(
+                total_anomalies=len(demo), anomalies=demo,
+                severity_breakdown=sev, type_breakdown=typ,
+                processing_time=time.time() - start_time,
+                tickets_analyzed=len(request.tickets_data),
+                detection_period={"start": end - timedelta(days=request.days_lookback), "end": end},
+                timestamp=end.isoformat(), status="demo",
             )
         
         # Validate and convert detection types
@@ -1202,10 +1247,25 @@ async def get_recent_anomalies(
     try:
         # Check if anomaly detection is available
         if not manager.anomaly_initialized or not manager.anomaly_detector:
-            raise HTTPException(
-                status_code=503,
-                detail="Anomaly detection not available. Please check server logs."
-            )
+            if severity and severity not in ["low", "medium", "high", "critical"]:
+                raise HTTPException(status_code=400, detail="Invalid severity. Must be one of: low, medium, high, critical")
+            if anomaly_type and anomaly_type not in ["volume_spike", "sentiment_shift", "new_issue", "outlier"]:
+                raise HTTPException(status_code=400, detail="Invalid anomaly_type. Must be one of: volume_spike, sentiment_shift, new_issue, outlier")
+            demo = [a for a in generate_demo_anomalies(days)
+                    if (not severity or a["severity"] == severity)
+                    and (not anomaly_type or a["type"] == anomaly_type)]
+            sev, typ = {}, {}
+            for a in demo:
+                sev[a["severity"]] = sev.get(a["severity"], 0) + 1
+                typ[a["type"]] = typ.get(a["type"], 0) + 1
+            return {
+                "total_anomalies": len(demo), "anomalies": demo,
+                "severity_breakdown": sev, "type_breakdown": typ,
+                "lookback_days": days,
+                "filters_applied": {"severity": severity, "anomaly_type": anomaly_type},
+                "timestamp": datetime.now().isoformat(),
+                "status": "demo",
+            }
         
         # Get recent anomalies
         recent_anomalies = manager.anomaly_detector.get_recent_anomalies(days=days)

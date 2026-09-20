@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { Loader2, Tag, CheckCircle, Cpu, Zap } from 'lucide-react'
 import { apiHeaders } from '../lib/apiHeaders'
 
-const CATEGORIES = ['Technical Issue', 'Billing', 'Feature Request', 'Bug Report', 'Account', 'Other']
 const CATEGORY_COLORS = {
   'Technical Issue': 'bg-blue-100 text-blue-700',
   'Billing': 'bg-emerald-100 text-emerald-700',
   'Feature Request': 'bg-purple-100 text-purple-700',
   'Bug Report': 'bg-red-100 text-red-700',
   'Account': 'bg-amber-100 text-amber-700',
+  'Security': 'bg-orange-100 text-orange-700',
+  'Data Issue': 'bg-cyan-100 text-cyan-700',
+  'Account Management': 'bg-amber-100 text-amber-700',
   'Other': 'bg-slate-100 text-slate-700',
 }
 
@@ -60,7 +62,11 @@ export default function TicketCategorization() {
     }
   }
 
-  const category = result?.category || result?.predictions?.xgboost?.category
+  const preds = result?.predictions
+  const primary = preds?.xgboost || preds?.tensorflow
+  const category = primary?.predicted_category || primary?.category || result?.category
+  const lowConfidence = primary?.low_confidence
+  const suggestion = primary?.keyword_suggestion
   const colorClass = CATEGORY_COLORS[category] || 'bg-slate-100 text-slate-700'
 
   return (
@@ -182,6 +188,11 @@ export default function TicketCategorization() {
                 <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>
                   {category || 'Unknown'}
                 </span>
+                {lowConfidence && (
+                  <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                    Low model confidence.{suggestion ? ` Keyword analysis suggests: ${suggestion}.` : ' Treat this result as a guess.'}
+                  </p>
+                )}
                 {result.total_inference_time_ms && (
                   <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-500">
                     <Zap size={12} />
@@ -211,10 +222,10 @@ export default function TicketCategorization() {
                   </div>
                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
                     <p className="text-xs text-slate-500">
-                      XGBoost → <span className="font-medium text-slate-700">{result.predictions.xgboost?.category}</span>
+                      XGBoost → <span className="font-medium text-slate-700">{(result.predictions.xgboost?.predicted_category || result.predictions.xgboost?.category)}</span>
                     </p>
                     <p className="text-xs text-slate-500">
-                      TensorFlow → <span className="font-medium text-slate-700">{result.predictions.tensorflow?.category}</span>
+                      TensorFlow → <span className="font-medium text-slate-700">{(result.predictions.tensorflow?.predicted_category || result.predictions.tensorflow?.category)}</span>
                     </p>
                   </div>
                 </div>
