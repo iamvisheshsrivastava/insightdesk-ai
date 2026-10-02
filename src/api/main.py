@@ -1093,7 +1093,13 @@ async def retrieve_solutions(
             solutions=solution_results,
             total_found=len(solutions),
             search_type=request.search_type,
-            processing_time=processing_time
+            processing_time=processing_time,
+            status="success",
+            version="1.0.0",
+            models_loaded=True,
+            available_models=manager.get_available_models() or ["rag"],
+            mlflow_available=MLFLOW_AVAILABLE,
+            timestamp=datetime.now().isoformat()
         )
         
     except HTTPException:
