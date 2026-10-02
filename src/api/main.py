@@ -368,7 +368,7 @@ def generate_mock_classification(ticket):
     hint = keyword_category_hint(ticket)
     if hint:
         return hint
-    if ticket.priority in ["high", "critical"] or ticket.severity in ["major", "critical"]:
+    if ticket.priority in ["high", "critical"] or ticket.severity in ["P0", "P1"]:
         return "Technical Issue"
     return "Feature Request"
 
@@ -509,7 +509,7 @@ class TicketInput(BaseModel):
     product_module: Optional[str] = Field("unknown", description="Product module")
     channel: Optional[str] = Field("email", description="Support channel (email, chat, phone)")
     priority: Optional[str] = Field("medium", description="Ticket priority (low, medium, high, critical)")
-    severity: Optional[str] = Field("minor", description="Ticket severity (minor, major, critical)")
+    severity: Optional[str] = Field("P2", description="Ticket severity (P0=highest ... P4=lowest, matching training data)")
     customer_tier: Optional[str] = Field("standard", description="Customer tier (standard, premium, enterprise)")
     region: Optional[str] = Field("US", description="Customer region")
     
@@ -541,10 +541,12 @@ class TicketInput(BaseModel):
     
     @validator('severity')
     def validate_severity(cls, v):
-        valid_severities = ['minor', 'major', 'critical']
-        if v.lower() not in valid_severities:
-            return 'minor'  # Default fallback
-        return v.lower()
+        # Must match the vocabulary the model was trained on (data/support_tickets.json
+        # uses P0 (highest) .. P4 (lowest)). See issue #19.
+        valid_severities = ['P0', 'P1', 'P2', 'P3', 'P4']
+        if v.upper() not in valid_severities:
+            return 'P2'  # Default fallback
+        return v.upper()
     
     class Config:
         json_schema_extra = {

@@ -292,7 +292,9 @@ class AgentCorrectionRequest(BaseModel):
     prediction_quality: str = Field("poor", description="Quality assessment of original prediction")
     severity: str = Field("medium", description="Severity of the correction")
     ticket_data: Optional[Dict[str, Any]] = Field(None, description="Original ticket data")
-    
+    should_retrain: bool = Field(True, description="Whether this correction should trigger retraining")
+    correction_confidence: float = Field(1.0, ge=0.0, le=1.0, description="Agent's confidence in the correction")
+
     @validator('prediction_quality')
     def validate_quality(cls, v):
         valid_qualities = [q.value for q in PredictionQuality]

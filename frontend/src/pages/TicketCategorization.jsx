@@ -39,7 +39,10 @@ export default function TicketCategorization() {
   const [stackTrace,  setStackTrace]  = useState('')
   const [product,     setProduct]     = useState('Product A')
   const [priority,    setPriority]    = useState('Medium')
-  const [severity,    setSeverity]    = useState('2 - Medium')
+  // Must match TicketInput.validate_severity in src/api/main.py, which in turn matches
+  // the training data vocab (data/support_tickets.json uses P0=highest .. P4=lowest).
+  // Anything else is rejected and silently falls back to "P2" (#19).
+  const [severity,    setSeverity]    = useState('P2')
   const [loading,     setLoading]     = useState(false)
   const [result,      setResult]      = useState(null)
   const [error,       setError]       = useState(null)
@@ -144,10 +147,11 @@ export default function TicketCategorization() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Severity</label>
               <select value={severity} onChange={e => setSeverity(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option>1 - Low</option>
-                <option>2 - Medium</option>
-                <option>3 - High</option>
-                <option>4 - Critical</option>
+                <option value="P0">P0 - Critical</option>
+                <option value="P1">P1 - High</option>
+                <option value="P2">P2 - Medium</option>
+                <option value="P3">P3 - Low</option>
+                <option value="P4">P4 - Lowest</option>
               </select>
             </div>
           </div>

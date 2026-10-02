@@ -1,36 +1,25 @@
 import { useState } from 'react'
-import { MessageSquare, Loader2, CheckCircle, Star } from 'lucide-react'
+import { MessageSquare, Loader2, CheckCircle } from 'lucide-react'
 import { apiHeaders } from '../lib/apiHeaders'
 
-function StarRating({ value, onChange }) {
-  const [hovered, setHovered] = useState(0)
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map(n => (
-        <button
-          key={n} type="button"
-          onClick={() => onChange(n)}
-          onMouseEnter={() => setHovered(n)}
-          onMouseLeave={() => setHovered(0)}
-          className="p-0.5"
-        >
-          <Star
-            size={22}
-            className={`transition-colors ${n <= (hovered || value) ? 'text-amber-400 fill-amber-400' : 'text-slate-300'}`}
-          />
-        </button>
-      ))}
-    </div>
-  )
-}
+// Vocab accepted by AgentCorrectionRequest in src/feedback/feedback_models.py
+const PREDICTION_QUALITIES = ['excellent', 'good', 'acceptable', 'poor', 'incorrect']
+const SEVERITIES = ['low', 'medium', 'high', 'critical']
+
+// predictionCorrect ('Yes'/'No'/'Partially') -> a sensible default prediction_quality
+const QUALITY_FROM_CORRECTNESS = { Yes: 'good', Partially: 'acceptable', No: 'poor' }
 
 export default function Feedback() {
   const [ticketId,         setTicketId]         = useState('')
+  const [agentId,          setAgentId]           = useState('agent_001')
+  const [modelType,        setModelType]         = useState('xgboost')
   const [predCategory,     setPredCategory]     = useState('')
+  const [originalConfidence, setOriginalConfidence] = useState(0.8)
   const [actualCategory,   setActualCategory]   = useState('Technical Issue')
   const [predictionCorrect,setPredictionCorrect]= useState('Yes')
-  const [resolutionTime,   setResolutionTime]   = useState(1.0)
-  const [agentSatisfaction,setAgentSatisfaction]= useState(3)
+  const [predictionQuality,setPredictionQuality]= useState('good')
+  const [severity,         setSeverity]          = useState('medium')
+  const [correctionReason, setCorrectionReason]  = useState('')
   const [notes,            setNotes]            = useState('')
   const [loading,          setLoading]          = useState(false)
   const [success,          setSuccess]          = useState(false)
@@ -40,19 +29,25 @@ export default function Feedback() {
     e.preventDefault()
     setLoading(true); setError(null); setSuccess(false)
     try {
-      const res = await fetch('/api/feedback/agent', {
+      const res = await fetch('/api/feedback/correction', {
         method: 'POST',
         headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          ticket_id: ticketId, predicted_category: predCategory,
-          actual_category: actualCategory, prediction_correct: predictionCorrect,
-          resolution_time: resolutionTime, agent_satisfaction: agentSatisfaction,
-          notes, feedback_type: 'agent',
+          ticket_id: ticketId,
+          agent_id: agentId,
+          original_prediction: predCategory,
+          original_confidence: originalConfidence,
+          model_type: modelType,
+          corrected_label: actualCategory,
+          correction_reason: correctionReason || `Agent marked prediction as ${predictionCorrect.toLowerCase()}`,
+          correction_notes: notes || null,
+          prediction_quality: predictionQuality,
+          severity,
         }),
       })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       setSuccess(true)
-      setTicketId(''); setPredCategory(''); setNotes('')
+      setTicketId(''); setPredCategory(''); setNotes(''); setCorrectionReason('')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -98,15 +93,40 @@ export default function Feedback() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Ticket ID</label>
                 <input value={ticketId} onChange={e => setTicketId(e.target.value)}
-                  placeholder="TKT-12345"
+                  placeholder="TKT-12345" required
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400 font-mono"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Predicted Category</label>
                 <input value={predCategory} onChange={e => setPredCategory(e.target.value)}
-                  placeholder="e.g. Technical Issue"
+                  placeholder="e.g. Technical Issue" required
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Agent ID</label>
+                <input value={agentId} onChange={e => setAgentId(e.target.value)}
+                  placeholder="agent_001" required
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Model Type</label>
+                <select value={modelType} onChange={e => setModelType(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {['xgboost', 'random_forest', 'bert', 'ensemble'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Original Confidence <span className="text-slate-400 font-normal">({originalConfidence.toFixed(2)})</span>
+                </label>
+                <input type="range" min={0} max={1} step={0.01} value={originalConfidence}
+                  onChange={e => setOriginalConfidence(Number(e.target.value))}
+                  className="w-full"
                 />
               </div>
             </div>
@@ -132,7 +152,10 @@ export default function Feedback() {
                 <div className="flex gap-2">
                   {['Yes', 'No', 'Partially'].map(opt => (
                     <button key={opt} type="button"
-                      onClick={() => setPredictionCorrect(opt)}
+                      onClick={() => {
+                        setPredictionCorrect(opt)
+                        setPredictionQuality(QUALITY_FROM_CORRECTNESS[opt])
+                      }}
                       className={`flex-1 text-sm py-2 rounded-lg font-medium border transition-colors ${
                         predictionCorrect === opt
                           ? 'bg-blue-600 text-white border-blue-600'
@@ -144,27 +167,30 @@ export default function Feedback() {
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100" />
-
-          {/* Performance */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Performance Metrics</h3>
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Resolution Time (hours)</label>
-                <input type="number" value={resolutionTime}
-                  onChange={e => setResolutionTime(Number(e.target.value))} min={0} step={0.5}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Prediction Quality</label>
+                <select value={predictionQuality} onChange={e => setPredictionQuality(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {PREDICTION_QUALITIES.map(q => (
+                    <option key={q} value={q}>{q}</option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Agent Satisfaction <span className="text-slate-400 font-normal">({agentSatisfaction}/5)</span>
-                </label>
-                <StarRating value={agentSatisfaction} onChange={setAgentSatisfaction} />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Severity</label>
+                <select value={severity} onChange={e => setSeverity(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {SEVERITIES.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Correction Reason</label>
+                <input value={correctionReason} onChange={e => setCorrectionReason(e.target.value)}
+                  placeholder="Why was this correction needed?"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                />
               </div>
             </div>
           </div>
@@ -200,11 +226,11 @@ export default function Feedback() {
             </li>
             <li className="flex gap-2">
               <span className="text-blue-500 shrink-0">•</span>
-              Resolution time helps calibrate urgency scoring.
+              Original confidence and model type help us track which models need the most correction.
             </li>
             <li className="flex gap-2">
               <span className="text-blue-500 shrink-0">•</span>
-              Your satisfaction rating influences future model optimization.
+              A clear correction reason makes retraining more effective.
             </li>
           </ul>
         </div>
