@@ -121,6 +121,8 @@ class TestVolumeAnomalyDetector(unittest.TestCase):
     
     def create_volume_test_data(self):
         """Create test data with volume spikes."""
+        # Seed for deterministic baseline volume (see #20: flaky severity assertions).
+        np.random.seed(42)
         base_date = datetime.utcnow() - timedelta(days=30)
         tickets = []
         
