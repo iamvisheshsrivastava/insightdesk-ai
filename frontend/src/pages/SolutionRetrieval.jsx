@@ -147,11 +147,11 @@ export default function SolutionRetrieval() {
                   <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                     {i + 1}
                   </span>
-                  {s.ticket_id && (
-                    <span className="text-xs text-slate-500 font-mono">Ticket: {s.ticket_id}</span>
+                  {s.resolution_id && (
+                    <span className="text-xs text-slate-500 font-mono">Ticket: {s.resolution_id}</span>
                   )}
                 </div>
-                <ScoreBadge score={s.score} />
+                <ScoreBadge score={s.similarity_score} />
               </div>
               <p className="text-sm text-slate-700 leading-relaxed">
                 {s.resolution || s.preview || 'No resolution text available.'}
