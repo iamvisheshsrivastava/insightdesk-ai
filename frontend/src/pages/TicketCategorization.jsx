@@ -43,6 +43,18 @@ export default function TicketCategorization() {
   // the training data vocab (data/support_tickets.json uses P0=highest .. P4=lowest).
   // Anything else is rejected and silently falls back to "P2" (#19).
   const [severity,    setSeverity]    = useState('P2')
+  // Additional fields the model was actually trained on (see #16: the form previously
+  // only sent 3 of 14 features, starving the classifier of its strongest signals).
+  const [productModule,         setProductModule]         = useState('unknown')
+  const [customerTier,          setCustomerTier]          = useState('standard')
+  const [region,                setRegion]                = useState('US')
+  const [previousTickets,       setPreviousTickets]       = useState(0)
+  const [accountAgeDays,        setAccountAgeDays]        = useState(0)
+  const [accountMonthlyValue,   setAccountMonthlyValue]   = useState(0)
+  const [responseCount,         setResponseCount]         = useState(0)
+  const [attachmentsCount,      setAttachmentsCount]      = useState(0)
+  const [affectedUsers,         setAffectedUsers]         = useState(1)
+  const [resolutionTimeHours,   setResolutionTimeHours]   = useState(0)
   const [loading,     setLoading]     = useState(false)
   const [result,      setResult]      = useState(null)
   const [error,       setError]       = useState(null)
@@ -54,7 +66,20 @@ export default function TicketCategorization() {
       const res = await fetch('/api/predict/category', {
         method: 'POST',
         headers: apiHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ subject, description, error_logs: errorLogs, stack_trace: stackTrace, product, priority, severity }),
+        body: JSON.stringify({
+          subject, description, error_logs: errorLogs, stack_trace: stackTrace,
+          product, priority, severity,
+          product_module: productModule,
+          customer_tier: customerTier,
+          region,
+          previous_tickets: Number(previousTickets) || 0,
+          account_age_days: Number(accountAgeDays) || 0,
+          account_monthly_value: Number(accountMonthlyValue) || 0,
+          response_count: Number(responseCount) || 0,
+          attachments_count: Number(attachmentsCount) || 0,
+          affected_users: Number(affectedUsers) || 1,
+          resolution_time_hours: Number(resolutionTimeHours) || 0,
+        }),
       })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       setResult(await res.json())
@@ -153,6 +178,92 @@ export default function TicketCategorization() {
                 <option value="P3">P3 - Low</option>
                 <option value="P4">P4 - Lowest</option>
               </select>
+            </div>
+          </div>
+
+          {/* Operational fields the model was trained on (#16) */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Module</label>
+              <input
+                value={productModule} onChange={e => setProductModule(e.target.value)}
+                placeholder="e.g. billing-core"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Customer Tier</label>
+              <select value={customerTier} onChange={e => setCustomerTier(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="standard">Standard</option>
+                <option value="premium">Premium</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Region</label>
+              <select value={region} onChange={e => setRegion(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="US">US</option>
+                <option value="EU">EU</option>
+                <option value="APAC">APAC</option>
+                <option value="LATAM">LATAM</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Previous Tickets</label>
+              <input
+                type="number" min="0" value={previousTickets} onChange={e => setPreviousTickets(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Account Age (days)</label>
+              <input
+                type="number" min="0" value={accountAgeDays} onChange={e => setAccountAgeDays(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Account Value ($/mo)</label>
+              <input
+                type="number" min="0" step="0.01" value={accountMonthlyValue} onChange={e => setAccountMonthlyValue(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Affected Users</label>
+              <input
+                type="number" min="1" value={affectedUsers} onChange={e => setAffectedUsers(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Response Count</label>
+              <input
+                type="number" min="0" value={responseCount} onChange={e => setResponseCount(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Attachments</label>
+              <input
+                type="number" min="0" value={attachmentsCount} onChange={e => setAttachmentsCount(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Resolution Time (hrs)</label>
+              <input
+                type="number" min="0" step="0.1" value={resolutionTimeHours} onChange={e => setResolutionTimeHours(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
 
