@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { Activity, Tag, Search, AlertTriangle, BarChart2, MessageSquare } from 'lucide-react'
+import { Activity, Tag, Search, AlertTriangle, BarChart2, MessageSquare, PieChart } from 'lucide-react'
 import TicketCategorization from './pages/TicketCategorization'
 import SolutionRetrieval from './pages/SolutionRetrieval'
 import Anomalies from './pages/Anomalies'
 import Monitoring from './pages/Monitoring'
 import Feedback from './pages/Feedback'
+import Analytics from './pages/Analytics'
 
 const PAGES = [
   { key: 'categorization', label: 'Ticket Classification', icon: Tag },
   { key: 'solutions',      label: 'Solution Retrieval',   icon: Search },
   { key: 'anomalies',      label: 'Anomaly Detection',    icon: AlertTriangle },
+  { key: 'analytics',      label: 'Analytics',            icon: PieChart },
   { key: 'monitoring',     label: 'Monitoring & Drift',   icon: BarChart2 },
   { key: 'feedback',       label: 'Feedback',             icon: MessageSquare },
 ]
@@ -63,6 +65,7 @@ export default function App() {
         {page === 'categorization' && <TicketCategorization />}
         {page === 'solutions'      && <SolutionRetrieval />}
         {page === 'anomalies'      && <Anomalies />}
+        {page === 'analytics'      && <Analytics />}
         {page === 'monitoring'     && <Monitoring />}
         {page === 'feedback'       && <Feedback />}
       </main>
