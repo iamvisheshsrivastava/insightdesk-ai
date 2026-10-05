@@ -990,8 +990,39 @@ def generate_demo_solutions(subject: str, description: str, k: int, search_type:
     
     # Sort by similarity_score (highest first)
     solutions.sort(key=lambda x: x["similarity_score"], reverse=True)
-    
+
     return solutions
+
+
+def generate_demo_graph_solutions(subject: str, description: str, k: int) -> List[Dict]:
+    """
+    Generate demo Graph-RAG solutions when Neo4j/graph pipeline is not configured.
+    Reuses the plain demo-solution generator and layers on clearly-labelled,
+    deterministic graph-specific fields (see #9: graph endpoints hard-503'd with
+    no fallback, unlike /predict/category and /retrieve/solutions).
+    """
+    import random
+    base_solutions = generate_demo_solutions(subject, description, k, search_type="hybrid")
+    for solution in base_solutions:
+        solution["graph_relevance_score"] = round(random.uniform(0.5, 0.85), 3)
+        solution["relationship_path"] = ["Ticket", "RELATES_TO", "KnownIssue", "RESOLVED_BY", "Solution"]
+        solution["connected_issues"] = [f"DEMO-ISSUE-{random.randint(100, 999)}"]
+        solution["kb_references"] = [f"KB-{random.randint(1000, 9999)}"]
+        solution["hybrid_score"] = round(
+            0.6 * solution["similarity_score"] + 0.4 * solution["graph_relevance_score"], 3
+        )
+    return base_solutions
+
+
+def generate_demo_graph_stats() -> Dict[str, Any]:
+    """Static, clearly-labelled demo graph stats used when Neo4j is unavailable (see #9)."""
+    return {
+        "nodes": {"Ticket": 1240, "Solution": 380, "KnownIssue": 95, "Product": 12},
+        "relationships": {"RELATES_TO": 1240, "RESOLVED_BY": 980, "AFFECTS": 410},
+        "graph_health": {"status": "demo", "note": "Neo4j not configured; showing static demo stats"},
+        "last_updated": None,
+        "connection_status": "demo",
+    }
 
 
 @app.post("/retrieve/solutions", response_model=RetrievalResponse, dependencies=[Depends(require_api_key)])
@@ -2020,6 +2051,31 @@ async def get_agent_corrections(
         raise HTTPException(status_code=500, detail="Failed to retrieve corrections. See server logs for details.")
 
 
+@app.get("/feedback/retrain/status")
+async def get_retrain_status():
+    """
+    Report the status of the reclassification feedback loop (#22):
+    last retrain time, number of corrections used, and before/after
+    validation accuracy, as written by scripts/retrain_from_feedback.py.
+    """
+    status_path = Path("models") / "retrain_status.json"
+    if not status_path.exists():
+        return {
+            "status": "never_run",
+            "detail": "No retrain has been run yet. See scripts/retrain_from_feedback.py.",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    try:
+        with open(status_path, "r", encoding="utf-8") as f:
+            status = json.load(f)
+        status["timestamp"] = datetime.now().isoformat()
+        return status
+    except Exception as e:
+        logger.error(f"Error reading retrain status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read retrain status. See server logs for details.")
+
+
 @app.get("/feedback/customer")
 async def get_customer_feedback(
     days_back: int = 30,
@@ -2187,21 +2243,34 @@ async def retrieve_graph_solutions(
     - **request**: Enhanced ticket information with graph search parameters
     """
     start_time = time.time()
-    
+
     try:
-        # Check if Graph-RAG system is available
-        if not GRAPH_RAG_AVAILABLE:
-            raise HTTPException(
-                status_code=503,
-                detail="Graph-RAG system not available. Please check if Neo4j is running."
+        # Graph-RAG requires Neo4j to be configured, which isn't guaranteed in every
+        # deployment. Rather than hard-failing (see #9), fall back to clearly-labelled
+        # demo data so the frontend's graph-retrieval tab stays usable.
+        if not GRAPH_RAG_AVAILABLE or not manager.graph_rag_initialized or not manager.hybrid_rag_pipeline:
+            logger.warning("Graph-RAG pipeline not available. Generating demo graph solutions...")
+            demo_solutions = generate_demo_graph_solutions(request.subject, request.description, request.k)
+            graph_solutions = [GraphSolutionResult(**s) for s in demo_solutions]
+            processing_time = time.time() - start_time
+            query_summary = request.subject
+            if len(query_summary) > 50:
+                query_summary = query_summary[:50] + "..."
+            return GraphRetrievalResponse(
+                query_summary=query_summary,
+                solutions=graph_solutions,
+                total_found=len(graph_solutions),
+                semantic_results=len(graph_solutions),
+                graph_results=0,
+                hybrid_ranking_applied=False,
+                search_weights={"semantic": request.semantic_weight, "graph": request.graph_weight},
+                processing_time=processing_time,
+                graph_stats=generate_demo_graph_stats(),
+                status="demo",
+                version="1.0.0-demo",
+                timestamp=datetime.now().isoformat()
             )
-        
-        if not manager.graph_rag_initialized or not manager.hybrid_rag_pipeline:
-            raise HTTPException(
-                status_code=503,
-                detail="Graph-RAG pipeline not initialized. Please check server logs."
-            )
-        
+
         # Prepare ticket data for querying
         ticket_data = {
             "subject": request.subject,
@@ -2301,19 +2370,20 @@ async def get_graph_stats(
     graph health for monitoring purposes.
     """
     try:
-        # Check if Graph-RAG system is available
-        if not GRAPH_RAG_AVAILABLE:
-            raise HTTPException(
-                status_code=503,
-                detail="Graph-RAG system not available. Please check if Neo4j is running."
+        # Fall back to clearly-labelled demo stats when Neo4j/graph manager isn't
+        # configured, instead of hard-503'ing (see #9).
+        if not GRAPH_RAG_AVAILABLE or not manager.graph_rag_initialized or not manager.graph_manager:
+            logger.warning("Graph manager not available. Returning demo graph stats...")
+            demo_stats = generate_demo_graph_stats()
+            return GraphStatsResponse(
+                nodes=demo_stats["nodes"],
+                relationships=demo_stats["relationships"],
+                graph_health=demo_stats["graph_health"],
+                last_updated=demo_stats["last_updated"],
+                connection_status=demo_stats["connection_status"],
+                timestamp=datetime.now().isoformat()
             )
-        
-        if not manager.graph_rag_initialized or not manager.graph_manager:
-            raise HTTPException(
-                status_code=503,
-                detail="Graph manager not initialized. Please check server logs."
-            )
-        
+
         # Get graph statistics
         stats = manager.graph_manager.get_graph_stats()
         health = manager.graph_manager.health_check()
@@ -2708,6 +2778,145 @@ async def solve_ticket_agent(request: AgentRequest):
     except Exception as e:
         logger.error(f"Agent execution failed: {e}")
         raise HTTPException(status_code=500, detail="Internal server error. See server logs for details.")
+
+# ============= ANALYTICS (#23) =============
+
+_analytics_dataset_cache: Optional[Any] = None
+
+
+def _load_analytics_dataset():
+    """
+    Lazily load and cache the ticket dataset used for analytics.
+    Reuses the same dataset the models were trained on (data/support_tickets.json)
+    rather than introducing a new storage engine, per issue #23's "start read-only
+    over existing feedback/prediction records" sketch.
+    """
+    global _analytics_dataset_cache
+    if _analytics_dataset_cache is not None:
+        return _analytics_dataset_cache
+
+    import pandas as pd
+    data_path = Path("data") / "support_tickets.json"
+    if not data_path.exists():
+        _analytics_dataset_cache = pd.DataFrame()
+        return _analytics_dataset_cache
+
+    try:
+        from src.ingestion.data_loader import load_json_tickets
+        df = load_json_tickets(data_path)
+        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
+        _analytics_dataset_cache = df
+    except Exception as e:
+        logger.warning(f"Analytics: failed to load ticket dataset: {e}")
+        _analytics_dataset_cache = pd.DataFrame()
+
+    return _analytics_dataset_cache
+
+
+class AnalyticsSummaryResponse(BaseModel):
+    """Response model for the ticket analytics summary."""
+    window_days: int
+    total_tickets: int
+    volume_by_day: List[Dict[str, Any]]
+    category_breakdown: Dict[str, int]
+    priority_breakdown: Dict[str, int]
+    top_categories: List[Dict[str, Any]]
+    avg_model_confidence: Optional[float]
+    corrections_in_window: int
+    status: str
+    version: str
+    timestamp: str
+
+
+@app.get("/analytics/summary", response_model=AnalyticsSummaryResponse)
+async def get_analytics_summary(
+    days: int = 30,
+    manager: ModelManager = Depends(get_model_manager)
+):
+    """
+    Ticket-facing analytics: volume over time, category/priority breakdowns,
+    and average model confidence (#23).
+
+    Built read-only from data already available: the historical ticket
+    dataset (data/support_tickets.json, same data the classifier was trained
+    on) for volume/category/priority, and the feedback system
+    (src/feedback/feedback_manager.py) for model-confidence signal, since
+    the live API doesn't persist a separate prediction log.
+
+    - **days**: size of the rolling window, anchored to the most recent
+      ticket in the dataset (so the demo dataset - which is historical -
+      still produces a meaningful recent window).
+    """
+    try:
+        df = _load_analytics_dataset()
+
+        if df.empty:
+            return AnalyticsSummaryResponse(
+                window_days=days,
+                total_tickets=0,
+                volume_by_day=[],
+                category_breakdown={},
+                priority_breakdown={},
+                top_categories=[],
+                avg_model_confidence=None,
+                corrections_in_window=0,
+                status="no_data",
+                version="1.0.0",
+                timestamp=datetime.now().isoformat()
+            )
+
+        import pandas as pd
+        max_date = df["created_at"].max()
+        window_start = max_date - pd.Timedelta(days=days)
+        windowed = df[df["created_at"] >= window_start]
+
+        volume_by_day = (
+            windowed.assign(day=windowed["created_at"].dt.date.astype(str))
+            .groupby("day")
+            .size()
+            .reset_index(name="count")
+            .sort_values("day")
+            .to_dict(orient="records")
+        )
+
+        category_breakdown = windowed["category"].value_counts().to_dict() if "category" in windowed else {}
+        priority_breakdown = windowed["priority"].value_counts().to_dict() if "priority" in windowed else {}
+        top_categories = [
+            {"category": cat, "count": int(count)}
+            for cat, count in sorted(category_breakdown.items(), key=lambda kv: kv[1], reverse=True)[:5]
+        ]
+
+        avg_confidence = None
+        corrections_in_window = 0
+        if FEEDBACK_AVAILABLE and manager.feedback_initialized and manager.feedback_manager:
+            try:
+                corrections = manager.feedback_manager.get_corrections(days_back=days)
+                corrections_in_window = len(corrections)
+                if corrections:
+                    avg_confidence = round(
+                        sum(c.original_confidence for c in corrections) / len(corrections), 4
+                    )
+            except Exception as e:
+                logger.warning(f"Analytics: could not read feedback corrections: {e}")
+
+        return AnalyticsSummaryResponse(
+            window_days=days,
+            total_tickets=int(len(windowed)),
+            volume_by_day=volume_by_day,
+            category_breakdown={str(k): int(v) for k, v in category_breakdown.items()},
+            priority_breakdown={str(k): int(v) for k, v in priority_breakdown.items()},
+            top_categories=top_categories,
+            avg_model_confidence=avg_confidence,
+            corrections_in_window=corrections_in_window,
+            status="success",
+            version="1.0.0",
+            timestamp=datetime.now().isoformat()
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating analytics summary: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate analytics summary. See server logs for details.")
+
 
 # ============= STATIC FILES & SPA ROUTING (For Single-Container Deployment) =============
 
