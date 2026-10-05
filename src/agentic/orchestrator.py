@@ -25,6 +25,7 @@ from src.agentic.core import AgentState, AgentAction, AgentObservation
 from src.agentic.planner import RuleBasedPlanner
 from src.agentic.tools.ml_tools import ClassificationTool
 from src.agentic.tools.rag_tools import RAGSearchTool
+from src.agentic.tools.routing_tool import RoutingTool
 from src.retrieval.rag_pipeline import RAGPipeline
 
 # Configure logger for tracking agent execution flow
@@ -89,7 +90,10 @@ class AgentOrchestrator:
             "ticket_classifier": ClassificationTool(),
             
             # Searches the knowledge base for relevant solutions using RAG
-            "solution_retriever": RAGSearchTool(pipeline=self.rag_pipeline)
+            "solution_retriever": RAGSearchTool(pipeline=self.rag_pipeline),
+
+            # Suggests which support team/queue a classified ticket should go to (#21)
+            "routing_suggester": RoutingTool()
         }
         
     def run(self, ticket_data: Dict[str, Any], max_steps: int = 5) -> Dict[str, Any]:
@@ -249,6 +253,7 @@ class AgentOrchestrator:
         # Initialize variables to collect results from the history
         classification = None  # Will store ticket classification results
         solutions = []  # Will store retrieved solutions from knowledge base
+        routing = None  # Will store routing suggestion results (#21)
         errors = []  # Will store any tool errors encountered along the way
 
         # Scan through the execution history to extract relevant observations
@@ -269,6 +274,10 @@ class AgentOrchestrator:
                     # Extract the solutions list from the tool output
                     solutions = item.output.get("found_solutions", [])
 
+                # Check if this is a routing suggestion result
+                elif item.tool_name == "routing_suggester" and item.output:
+                    routing = item.output
+
         # Construct the final response structure
         return {
             # Echo back the ticket ID for reference
@@ -283,6 +292,11 @@ class AgentOrchestrator:
                 "classification": classification,  # May be None if classification failed
                 "suggested_solutions": solutions  # May be empty if retrieval failed/skipped
             },
+
+            # Routing suggestion (#21): which team/queue should pick up this ticket,
+            # derived from its predicted category (and priority, for escalation).
+            "suggested_team": routing.get("suggested_team") if routing else None,
+            "suggested_queue": routing.get("suggested_queue") if routing else None,
 
             # Any tool errors encountered during execution, so callers can
             # tell a genuine failure apart from "nothing needed to run".

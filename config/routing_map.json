@@ -1,0 +1,18 @@
+{
+  "_comment": "Maps a predicted ticket category (lowercase) to the support team/queue that should pick it up. Edited by ops without code changes; see src/agentic/tools/routing_tool.py.",
+  "authentication": {"team": "Identity & Access", "queue": "security-oncall"},
+  "security": {"team": "Identity & Access", "queue": "security-oncall"},
+  "database": {"team": "Infrastructure", "queue": "infra-oncall"},
+  "network": {"team": "Infrastructure", "queue": "infra-oncall"},
+  "technical issue": {"team": "Infrastructure", "queue": "infra-oncall"},
+  "bug report": {"team": "Engineering", "queue": "eng-triage"},
+  "billing": {"team": "Finance", "queue": "billing-support"},
+  "payment": {"team": "Finance", "queue": "billing-support"},
+  "account": {"team": "Account Management", "queue": "account-support"},
+  "account management": {"team": "Account Management", "queue": "account-support"},
+  "hardware": {"team": "Field Ops", "queue": "field-ops-dispatch"},
+  "feature request": {"team": "Product", "queue": "product-backlog"},
+  "data issue": {"team": "Data Platform", "queue": "data-oncall"},
+  "other": {"team": "General Support", "queue": "general-triage"},
+  "_default": {"team": "General Support", "queue": "general-triage"}
+}

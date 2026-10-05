@@ -34,7 +34,23 @@ class RuleBasedPlanner(BaseAgent):
                 log="Deciding to classify ticket first to understand context."
             )
 
-        # Step 2: Check if we have searched for solutions
+        # Step 2: Check if we have a routing suggestion yet (#21). Run this
+        # right after classification succeeds, before solution retrieval,
+        # since routing only needs the predicted category/priority.
+        routing = self._get_tool_output(state, "routing_suggester")
+        if not routing:
+            if self._has_failed(state, "routing_suggester"):
+                return None
+            return AgentAction(
+                tool_name="routing_suggester",
+                tool_input={
+                    "category": classification.get("predicted_category"),
+                    "priority": state.ticket_data.get("priority"),
+                },
+                log=f"Determining routing destination for category: {classification.get('predicted_category')}"
+            )
+
+        # Step 3: Check if we have searched for solutions
         rag_results = self._get_tool_output(state, "solution_retriever")
         if not rag_results:
             if self._has_failed(state, "solution_retriever"):

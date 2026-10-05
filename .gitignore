@@ -24,6 +24,8 @@ notebooks/*.ipynb
 !package.json
 !package-lock.json
 !**/package.json
+# Allow source config (routing map, etc.) - not data
+!config/*.json
 !**/package-lock.json
 
 # OS / IDE
