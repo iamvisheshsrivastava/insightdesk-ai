@@ -45,7 +45,7 @@ class RoutingTool:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
-            return {k: v for k, v in raw.items() if not k.startswith("_")}
+            return {k: v for k, v in raw.items() if k != "_comment"}
         except Exception as e:
             logger.warning(f"Could not load routing map from {path}: {e}. Using built-in default.")
             return {"_default": {"team": "General Support", "queue": "general-triage"}}

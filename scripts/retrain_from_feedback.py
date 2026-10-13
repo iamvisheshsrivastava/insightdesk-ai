@@ -74,6 +74,15 @@ CATEGORICAL_DEFAULTS = {
 }
 
 
+def derive_text_length(ticket_data: dict) -> int:
+    """Compute ticket_text_length the same way the live serving path does
+    (TicketInput.derive_text_length in src/api/main.py): the summed length of
+    the subject/description/error_logs/stack_trace text fields."""
+    return sum(
+        len(ticket_data.get(k) or "") for k in ("subject", "description", "error_logs", "stack_trace")
+    )
+
+
 def corrections_to_rows(corrections) -> pd.DataFrame:
     """Convert AgentCorrection records into training rows: (ticket text/fields, corrected category)."""
     rows = []
@@ -88,6 +97,9 @@ def corrections_to_rows(corrections) -> pd.DataFrame:
         }
         for col, default in {**NUMERIC_DEFAULTS, **CATEGORICAL_DEFAULTS}.items():
             row[col] = ticket_data.get(col, default)
+        # ticket_text_length must be derived from the actual stored ticket
+        # text (matching the live serving path), not left at its 0 default.
+        row["ticket_text_length"] = derive_text_length(ticket_data)
         rows.append(row)
     return pd.DataFrame(rows)
 

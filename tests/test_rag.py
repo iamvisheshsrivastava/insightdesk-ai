@@ -487,17 +487,31 @@ class TestRAGPipeline:
                 }
             ]
             pipeline.add_ticket_resolutions(tickets_data)
-            
-            # Update success rates
+
+            # Find the metadata entry that was just added for this ticket, and
+            # capture its starting success_rate/usage_count.
+            added_meta = next(
+                m for m in pipeline.vector_store.metadata
+                if m.get("ticket_id") == "TK-001"
+            )
+            assert added_meta.get("resolution_id") == "TK-001"
+            starting_rate = added_meta["success_rate"]
+            starting_count = added_meta["usage_count"]
+
+            # Update success rates, keyed on the resolution_id that was
+            # actually assigned to the runtime-added resolution.
             feedback_data = [
                 {
-                    "resolution_id": "RES-0001",
+                    "resolution_id": "TK-001",
                     "success": True
                 }
             ]
-            
-            # Should not raise an error
+
             pipeline.update_success_rates(feedback_data)
+
+            # The matching metadata entry should actually have been updated.
+            assert added_meta["usage_count"] == starting_count + 1
+            assert added_meta["success_rate"] != starting_rate
 
 
 class TestRAGAPIIntegration:

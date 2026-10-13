@@ -144,6 +144,7 @@ class RAGPipeline:
                 texts.append(text)
                 
                 resolution_meta = {
+                    "resolution_id": ticket.get("ticket_id"),
                     "ticket_id": ticket.get("ticket_id"),
                     "category": ticket.get("category"),
                     "product": ticket.get("product"),
@@ -208,6 +209,7 @@ class RAGPipeline:
             texts.append(text)
             
             article_meta = {
+                "resolution_id": article.get("article_id"),
                 "article_id": article.get("article_id"),
                 "title": article.get("title"),
                 "category": article.get("category"),

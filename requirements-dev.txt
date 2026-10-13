@@ -1,5 +1,11 @@
 -r requirements-prod.txt
 
+# Pinned explicitly (not just transitively via requirements-prod.txt) so the
+# retrain_from_feedback.py model-fit path (scripts/retrain_from_feedback.py)
+# is installable/testable in a dev env even if an unrelated prod dependency
+# (e.g. faiss-cpu) fails to build and aborts the rest of that file's install.
+xgboost<3
+
 pytest
 pytest-cov
 pytest-asyncio
