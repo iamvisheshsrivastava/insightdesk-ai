@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -102,7 +102,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Full history for better analysis
       
@@ -175,7 +175,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🐍 Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -247,7 +247,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
@@ -300,7 +300,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -387,7 +387,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
@@ -443,7 +443,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -492,7 +492,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🚀 Deploy to Staging (Placeholder)
         run: |
@@ -528,7 +528,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 🌟 Deploy to Production (Placeholder)
         run: |
@@ -564,7 +564,7 @@ jobs:
     
     steps:
       - name: 📥 Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: 📋 Post-Deployment Tasks (Placeholder)
         run: |
