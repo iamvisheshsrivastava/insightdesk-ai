@@ -3,7 +3,7 @@ uvicorn[standard]
 gunicorn
 pydantic
 scikit-learn
-xgboost<3
+xgboost<4
 faiss-cpu
 pandas
 numpy
