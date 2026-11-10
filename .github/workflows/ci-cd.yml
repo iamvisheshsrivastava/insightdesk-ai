@@ -152,7 +152,7 @@ jobs:
           echo "::endgroup::"
       
       - name: 📊 Upload Security Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: security-reports
@@ -212,7 +212,7 @@ jobs:
           fail_ci_if_error: false
       
       - name: 📈 Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ matrix.python-version }}
@@ -282,7 +282,7 @@ jobs:
           echo "::endgroup::"
       
       - name: 📊 Upload Integration Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: integration-test-results
@@ -370,7 +370,7 @@ jobs:
           echo "::endgroup::"
       
       - name: 📊 Upload Container Scan Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: container-security-scan
@@ -424,7 +424,7 @@ jobs:
           echo "::endgroup::"
       
       - name: 📊 Upload Performance Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: performance-test-results
