@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { AlertTriangle, RefreshCw, Loader2, ShieldAlert, Clock } from 'lucide-react'
 
 const SEVERITY_STYLES = {
-  high:   { badge: 'bg-red-100 text-red-700 border-red-200',   dot: 'bg-red-500',   border: 'border-l-red-500' },
-  medium: { badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500', border: 'border-l-amber-500' },
-  low:    { badge: 'bg-blue-100 text-blue-700 border-blue-200',  dot: 'bg-blue-400',  border: 'border-l-blue-400' },
+  critical: { badge: 'bg-red-200 text-red-900 border-red-400', dot: 'bg-red-700',   border: 'border-l-red-700' },
+  high:     { badge: 'bg-red-100 text-red-700 border-red-200',   dot: 'bg-red-500',   border: 'border-l-red-500' },
+  medium:   { badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500', border: 'border-l-amber-500' },
+  low:      { badge: 'bg-blue-100 text-blue-700 border-blue-200',  dot: 'bg-blue-400',  border: 'border-l-blue-400' },
 }
 
 function SeverityBadge({ severity }) {
@@ -49,9 +50,10 @@ export default function Anomalies() {
   useEffect(() => { fetchAnomalies() }, [])
 
   const all = anomalies || []
-  const high   = all.filter(a => a.severity?.toLowerCase() === 'high').length
-  const medium = all.filter(a => a.severity?.toLowerCase() === 'medium').length
-  const low    = all.filter(a => a.severity?.toLowerCase() === 'low').length
+  const critical = all.filter(a => a.severity?.toLowerCase() === 'critical').length
+  const high     = all.filter(a => a.severity?.toLowerCase() === 'high').length
+  const medium   = all.filter(a => a.severity?.toLowerCase() === 'medium').length
+  const low      = all.filter(a => a.severity?.toLowerCase() === 'low').length
 
   const filtered = severity === 'All' ? all : all.filter(a =>
     a.severity?.toLowerCase() === severity.toLowerCase()
@@ -78,8 +80,9 @@ export default function Anomalies() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6">
         <StatChip label="Total" count={all.length} color="text-slate-500" />
+        <StatChip label="Critical" count={critical} color="text-red-800" />
         <StatChip label="High" count={high} color="text-red-600" />
         <StatChip label="Medium" count={medium} color="text-amber-600" />
         <StatChip label="Low" count={low} color="text-blue-600" />
@@ -88,7 +91,7 @@ export default function Anomalies() {
       {/* Filter */}
       <div className="flex items-center gap-3 mb-4">
         <span className="text-sm font-medium text-slate-600">Filter by severity:</span>
-        {['All', 'High', 'Medium', 'Low'].map(s => (
+        {['All', 'Critical', 'High', 'Medium', 'Low'].map(s => (
           <button
             key={s} onClick={() => setSeverity(s)}
             className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
