@@ -324,24 +324,32 @@ export default function TicketCategorization() {
                     <span className="text-sm font-semibold text-slate-700">Model Confidence</span>
                   </div>
                   <div className="space-y-3">
-                    <ConfidenceBar
-                      label="XGBoost"
-                      value={result.predictions.xgboost?.confidence}
-                      color="bg-blue-500"
-                    />
-                    <ConfidenceBar
-                      label="TensorFlow"
-                      value={result.predictions.tensorflow?.confidence}
-                      color="bg-purple-500"
-                    />
+                    {result.predictions.xgboost && (
+                      <ConfidenceBar
+                        label="XGBoost"
+                        value={result.predictions.xgboost?.confidence}
+                        color="bg-blue-500"
+                      />
+                    )}
+                    {result.predictions.tensorflow && (
+                      <ConfidenceBar
+                        label="TensorFlow"
+                        value={result.predictions.tensorflow?.confidence}
+                        color="bg-purple-500"
+                      />
+                    )}
                   </div>
                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-                    <p className="text-xs text-slate-500">
-                      XGBoost → <span className="font-medium text-slate-700">{(result.predictions.xgboost?.predicted_category || result.predictions.xgboost?.category)}</span>
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      TensorFlow → <span className="font-medium text-slate-700">{(result.predictions.tensorflow?.predicted_category || result.predictions.tensorflow?.category)}</span>
-                    </p>
+                    {result.predictions.xgboost && (
+                      <p className="text-xs text-slate-500">
+                        XGBoost → <span className="font-medium text-slate-700">{(result.predictions.xgboost?.predicted_category || result.predictions.xgboost?.category)}</span>
+                      </p>
+                    )}
+                    {result.predictions.tensorflow && (
+                      <p className="text-xs text-slate-500">
+                        TensorFlow → <span className="font-medium text-slate-700">{(result.predictions.tensorflow?.predicted_category || result.predictions.tensorflow?.category)}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
